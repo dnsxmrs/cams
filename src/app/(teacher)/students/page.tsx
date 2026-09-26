@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Navbar from "@/components/Navbar";
 import { Globe, Plus, Search, Edit2, BookOpen } from "lucide-react";
 
 export default function StudentDirectoryPage() {
@@ -25,10 +24,8 @@ export default function StudentDirectoryPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Navbar />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-page-entry space-y-6">
-        {/* Header */}
+    <div className="space-y-6">
+      {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs">
           <div>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-bold mb-2">
@@ -101,7 +98,6 @@ export default function StudentDirectoryPage() {
             </tbody>
           </table>
         </div>
-      </main>
     </div>
   );
 }

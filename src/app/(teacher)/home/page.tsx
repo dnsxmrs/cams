@@ -15,16 +15,10 @@ import {
   History,
   UserCheck,
   X,
-  QrCode,
   CheckCircle2,
-  AlertCircle,
   Play,
-  FileText,
   ChevronDown,
   ChevronUp,
-  Camera,
-  MapPin,
-  ArrowRight,
 } from "lucide-react";
 
 export default function TeacherHome() {
@@ -33,16 +27,8 @@ export default function TeacherHome() {
 
   // State management
   const [searchQuery, setSearchQuery] = useState("");
-  const [attendanceMode, setAttendanceMode] = useState<"roster" | "qr" | "scanner">("roster");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
-  const [isExcuseModalOpen, setIsExcuseModalOpen] = useState(false);
   const [isSubjectsExpanded, setIsSubjectsExpanded] = useState(false);
-
-  // Quick excuse modal form state
-  const [excuseStudentId, setExcuseStudentId] = useState("");
-  const [excuseReason, setExcuseReason] = useState("");
-  const [excuseSubject, setExcuseSubject] = useState("CS101");
 
   // Create subject modal form state
   const [newSubjectCode, setNewSubjectCode] = useState("");
@@ -195,155 +181,10 @@ export default function TeacherHome() {
 
   return (
     <div className="space-y-4 sm:space-y-5 max-w-5xl mx-auto px-2 sm:px-4 py-1 sm:py-3">
-      {/* 1. OPERATIONAL ALERT BANNER */}
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 flex items-center justify-between gap-2.5 shadow-xs">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0">
-            <AlertCircle className="w-4 h-4 text-amber-600" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs sm:text-sm font-bold text-amber-900 leading-tight truncate">
-              1 Pending Session
-            </p>
-            <p className="text-[11px] sm:text-xs text-amber-700/90 truncate">
-              MATH202 needs finalized attendance logs
-            </p>
-          </div>
-        </div>
-        <Link
-          href="/sessions/sess-2"
-          className="shrink-0 min-h-[36px] sm:min-h-[40px] px-2.5 sm:px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-lg sm:rounded-xl shadow-xs transition-colors flex items-center gap-1"
-        >
-          Review <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-        </Link>
-      </div>
-
-      {/* 2. TOP PRIORITY HERO CARD */}
-      <div className="relative overflow-hidden bg-slate-900 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-white shadow-lg border border-slate-800">
-        <div className="absolute right-0 top-0 -mt-12 -mr-12 w-64 h-64 sm:w-80 sm:h-80 bg-blue-600/20 rounded-full blur-2xl sm:blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 space-y-3.5 sm:space-y-4">
-          {/* Status Header Badge */}
-          <div className="flex items-center justify-between gap-2">
-            {activeClass.status === "in-progress" ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] sm:text-xs font-bold border border-emerald-500/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                CLASS IN SESSION
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] sm:text-xs font-bold border border-blue-500/30">
-                <Clock className="w-3 h-3 text-blue-400" />
-                UP NEXT TODAY
-              </span>
-            )}
-            <span className="text-[11px] sm:text-xs font-medium text-slate-400 truncate">
-              {teacherName.split(" ")[1] || teacherName}
-            </span>
-          </div>
-
-          {/* Class Info */}
-          <div className="space-y-1 sm:space-y-1.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-black tracking-wider text-white ${activeClass.badgeColor}`}>
-                {activeClass.code}
-              </span>
-              <span className="text-[11px] sm:text-xs font-semibold text-slate-300 flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-blue-400" />
-                {activeClass.room}
-              </span>
-              <span className="text-[11px] sm:text-xs font-semibold text-slate-300 flex items-center gap-1">
-                <Clock className="w-3 h-3 text-blue-400" />
-                {activeClass.time}
-              </span>
-            </div>
-
-            <h1 className="text-lg sm:text-2xl font-black text-white tracking-tight leading-snug">
-              {activeClass.name}
-            </h1>
-            <p className="text-[11px] sm:text-xs text-slate-300/90">
-              {activeClass.studentsCount} Enrolled Students &bull; Ready for roll call
-            </p>
-          </div>
-
-          {/* Mode Selector Fast Toggles */}
-          <div className="bg-slate-800/80 p-1 rounded-xl sm:rounded-2xl border border-slate-700/60 flex items-center gap-1">
-            <button
-              onClick={() => setAttendanceMode("roster")}
-              className={`flex-1 min-h-[38px] sm:min-h-[42px] py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                attendanceMode === "roster"
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-              }`}
-            >
-              <UserCheck className="w-3.5 h-3.5" /> Manual Roster
-            </button>
-            <button
-              onClick={() => {
-                setAttendanceMode("qr");
-                setIsQRModalOpen(true);
-              }}
-              className={`flex-1 min-h-[38px] sm:min-h-[42px] py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                attendanceMode === "qr"
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-              }`}
-            >
-              <QrCode className="w-3.5 h-3.5" /> Display QR
-            </button>
-            <button
-              onClick={() => setAttendanceMode("scanner")}
-              className={`flex-1 min-h-[38px] sm:min-h-[42px] py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                attendanceMode === "scanner"
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-              }`}
-            >
-              <Camera className="w-3.5 h-3.5" /> Kiosk Scan
-            </button>
-          </div>
-
-          {/* Call-To-Action Button */}
-          <Link
-            href={`/subjects/${activeClass.code}/sessions/new`}
-            className="w-full min-h-[44px] sm:min-h-[48px] py-2.5 sm:py-3 px-4 sm:px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-md shadow-blue-600/25 transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 group"
-          >
-            <Zap className="w-4 h-4 text-amber-300 group-hover:scale-110 transition-transform" />
-            <span>START ROLL CALL</span>
-            <ArrowRight className="w-3.5 h-3.5 ml-0.5 group-hover:translate-x-1 transition-transform" />
-          </Link>
-        </div>
-      </div>
-
       {/* 3. QUICK ACTIONS BAR */}
       <div className="space-y-1.5">
         <h2 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 px-0.5">Quick Actions</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-          <button
-            onClick={() => setIsQRModalOpen(true)}
-            className="p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-xl sm:rounded-2xl shadow-2xs hover:border-blue-500 hover:shadow-xs transition-all flex items-center gap-2 text-left group"
-          >
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <QrCode className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-900 leading-tight truncate">Show QR</p>
-              <p className="text-[10px] text-slate-500 truncate hidden xs:block sm:block">Self Check-in</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => setIsExcuseModalOpen(true)}
-            className="p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-xl sm:rounded-2xl shadow-2xs hover:border-blue-500 hover:shadow-xs transition-all flex items-center gap-2 text-left group"
-          >
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <FileText className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-900 leading-tight truncate">Excuse Slip</p>
-              <p className="text-[10px] text-slate-500 truncate hidden xs:block sm:block">Log Absence</p>
-            </div>
-          </button>
-
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <Link
             href="/students"
             className="p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-xl sm:rounded-2xl shadow-2xs hover:border-blue-500 hover:shadow-xs transition-all flex items-center gap-2 text-left group"
@@ -352,8 +193,21 @@ export default function TeacherHome() {
               <Users className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-900 leading-tight truncate">Students</p>
-              <p className="text-[10px] text-slate-500 truncate hidden xs:block sm:block">Directory</p>
+              <p className="text-xs font-semibold text-slate-900 leading-tight truncate">Student Directory</p>
+              <p className="text-[10px] text-slate-500 truncate hidden xs:block sm:block">View & Manage</p>
+            </div>
+          </Link>
+
+          <Link
+            href="/subjects"
+            className="p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-xl sm:rounded-2xl shadow-2xs hover:border-blue-500 hover:shadow-xs transition-all flex items-center gap-2 text-left group"
+          >
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <BookOpen className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-900 leading-tight truncate">Subjects</p>
+              <p className="text-[10px] text-slate-500 truncate hidden xs:block sm:block">Manage Classes</p>
             </div>
           </Link>
 
@@ -674,140 +528,7 @@ export default function TeacherHome() {
         </div>
       </div>
 
-      {/* MODAL 1: QR CODE DISPLAY MODAL */}
-      {isQRModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4">
-          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 max-w-xs sm:max-w-sm w-full shadow-2xl border border-slate-200 text-center space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-              <div className="text-left">
-                <span className="text-[10px] font-extrabold text-blue-600 uppercase tracking-wider">
-                  Self Check-in
-                </span>
-                <h3 className="text-sm sm:text-base font-bold text-slate-900">Class QR Code</h3>
-              </div>
-              <button
-                onClick={() => setIsQRModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
-              >
-                <X className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-2.5">
-              <div className="bg-slate-900 text-white p-4 sm:p-5 rounded-xl sm:rounded-2xl flex flex-col items-center justify-center space-y-2.5 shadow-inner">
-                <div className="w-36 h-36 sm:w-44 sm:h-44 bg-white p-2.5 rounded-xl shadow-md flex items-center justify-center">
-                  <svg viewBox="0 0 100 100" className="w-full h-full text-slate-900 fill-current">
-                    <rect x="10" y="10" width="30" height="30" rx="4" />
-                    <rect x="60" y="10" width="30" height="30" rx="4" />
-                    <rect x="10" y="60" width="30" height="30" rx="4" />
-                    <rect x="18" y="18" width="14" height="14" fill="white" />
-                    <rect x="68" y="18" width="14" height="14" fill="white" />
-                    <rect x="18" y="68" width="14" height="14" fill="white" />
-                    <rect x="22" y="22" width="6" height="6" />
-                    <rect x="72" y="22" width="6" height="6" />
-                    <rect x="22" y="72" width="6" height="6" />
-                    <rect x="50" y="50" width="12" height="12" />
-                    <rect x="65" y="65" width="20" height="8" />
-                    <rect x="50" y="70" width="10" height="15" />
-                  </svg>
-                </div>
-                <div className="text-center space-y-0.5">
-                  <p className="text-xs font-bold tracking-wider text-blue-400 uppercase">CODE: CS101-2026</p>
-                  <p className="text-[10px] text-slate-400">Scan via student portal</p>
-                </div>
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-800 font-medium">
-                ⏱️ QR expires in <span className="font-extrabold text-blue-900">09:45 mins</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setIsQRModalOpen(false)}
-              className="w-full min-h-[38px] sm:min-h-[42px] py-2 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all"
-            >
-              Close QR
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: EXCUSE SLIP QUICK MODAL */}
-      {isExcuseModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4">
-          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 max-w-sm sm:max-w-md w-full shadow-2xl border border-slate-200 space-y-3.5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-              <div>
-                <h3 className="text-sm sm:text-base font-bold text-slate-900">Log Student Excuse</h3>
-                <p className="text-[11px] sm:text-xs text-slate-500">Record an absence or late note</p>
-              </div>
-              <button
-                onClick={() => setIsExcuseModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
-              >
-                <X className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-2.5">
-              <div>
-                <label className="block text-[10px] sm:text-xs font-bold uppercase text-slate-600 mb-1">Select Subject</label>
-                <select
-                  value={excuseSubject}
-                  onChange={(e) => setExcuseSubject(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-lg sm:rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-600"
-                >
-                  <option value="CS101">CS101 - Computer Science</option>
-                  <option value="MATH202">MATH202 - Calculus II</option>
-                  <option value="PHYS101">PHYS101 - General Physics I</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] sm:text-xs font-bold uppercase text-slate-600 mb-1">Student ID / Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. STU-2026-001 or Alice"
-                  value={excuseStudentId}
-                  onChange={(e) => setExcuseStudentId(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 border border-slate-300 rounded-lg sm:rounded-xl text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] sm:text-xs font-bold uppercase text-slate-600 mb-1">Reason / Note</label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Medical excuse / Authorized activity"
-                  value={excuseReason}
-                  onChange={(e) => setExcuseReason(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 border border-slate-300 rounded-lg sm:rounded-xl text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-slate-100">
-              <button
-                onClick={() => setIsExcuseModalOpen(false)}
-                className="min-h-[38px] px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  alert(`Excuse logged for ${excuseStudentId || "Student"}`);
-                  setIsExcuseModalOpen(false);
-                }}
-                className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-xs transition-all flex items-center gap-1.5"
-              >
-                <FileText className="w-3.5 h-3.5" /> Save Note
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 3: CREATE NEW SUBJECT MODAL */}
+      {/* CREATE NEW SUBJECT MODAL */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4">
           <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 max-w-sm sm:max-w-md w-full shadow-2xl border border-slate-200 space-y-3.5">

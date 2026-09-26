@@ -1,10 +1,13 @@
 import Navbar from "@/components/Navbar";
+import { requireTeacherAuth } from "@/lib/auth";
 
-export default function HomeLayout({
+export default async function HomeLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requireTeacherAuth();
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col pb-16 md:pb-0">
       <Navbar />
@@ -17,3 +20,4 @@ export default function HomeLayout({
     </div>
   );
 }
+
