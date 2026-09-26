@@ -7,6 +7,7 @@ export default async function HomeLayout({
   children: React.ReactNode;
 }) {
   await requireTeacherAuth();
+  // throw new Error("Test Error Boundary");
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col pb-16 md:pb-0 transition-colors duration-200">

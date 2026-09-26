@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Krub } from "next/font/google";
+import Script from "next/script";
 import { Toaster } from "react-hot-toast";
 import "./globals.css";
 
@@ -33,7 +34,9 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <script
+        <Script
+          id="theme-initializer"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
@@ -58,3 +61,4 @@ export default function RootLayout({
     </html>
   );
 }
+
