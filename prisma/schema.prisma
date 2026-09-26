@@ -1,0 +1,81 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+model Teacher {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  subjects  Subject[]
+}
+model Student {
+  id            String             @id @default(uuid())
+  studentNumber String             @unique
+  fullName      String
+  email         String?
+  contactInfo   String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  enrollments   Enrollment[]
+  attendances   AttendanceRecord[]
+}
+model Subject {
+  id          String              @id @default(uuid())
+  code        String
+  name        String
+  description String?
+  teacherId   String
+  teacher     Teacher             @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  enrollments Enrollment[]
+  sessions    AttendanceSession[]
+  @@unique([code, teacherId])
+}
+model Enrollment {
+  id        String   @id @default(uuid())
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrolledAt DateTime @default(now())
+  @@unique([subjectId, studentId]) // Prevents duplicate student enrollment in same subject
+}
+model AttendanceSession {
+  id        String             @id @default(uuid())
+  subjectId String
+  subject   Subject            @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  sessionDate DateTime         @default(now())
+  title     String?
+  records   AttendanceRecord[]
+  createdAt DateTime           @default(now())
+}
+model AttendanceRecord {
+  id        String            @id @default(uuid())
+  sessionId String
+  session   AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status    AttendanceStatus  @default(PRESENT)
+  updatedAt DateTime          @updatedAt
+  @@unique([sessionId, studentId]) // Prevents duplicate student records in same session
+}
