@@ -31,7 +31,7 @@ export default function Navbar() {
   };
 
   const navLinks = [
-    { name: "Home", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Home", href: "/home", icon: LayoutDashboard },
     { name: "Subjects", href: "/subjects", icon: BookOpen },
     { name: "Students", href: "/students", icon: Users },
     { name: "Attendance", href: "/sessions", icon: Calendar },
@@ -55,7 +55,7 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-16">
             {/* Brand Logo & Title */}
             <div className="flex items-center gap-8">
-              <Link href="/dashboard" className="flex items-center gap-3 group">
+              <Link href="/home" className="flex items-center gap-3 group">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-500 text-white font-extrabold flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform duration-200">
                   <GraduationCap className="w-6 h-6" />
                 </div>

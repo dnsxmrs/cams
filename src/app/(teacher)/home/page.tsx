@@ -18,7 +18,7 @@ import {
   X,
 } from "lucide-react";
 
-export default function TeacherDashboard() {
+export default function TeacherHome() {
   const { data: session } = authClient.useSession();
   const teacherName = session?.user?.name || "Prof. Alan Turing";
 
