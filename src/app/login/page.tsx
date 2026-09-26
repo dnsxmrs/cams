@@ -55,9 +55,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4 text-slate-800">
-      <div className="w-full max-w-md bg-white border border-slate-200 p-8 rounded-2xl shadow-xl space-y-6">
+      <div className="w-full max-w-md bg-white border border-slate-200 p-8 rounded-2xl shadow-xl space-y-6 transition-all duration-300 hover:shadow-2xl">
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 font-bold text-xl mb-2 shadow-sm">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 font-bold text-xl mb-2 shadow-sm transition-transform duration-300 hover:scale-105">
             CAMS
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Teacher Login</h1>
@@ -78,7 +78,7 @@ export default function LoginPage() {
               placeholder="teacher@school.edu"
               className={`w-full px-4 py-2.5 bg-slate-50 border ${
                 errors.email ? "border-red-500 focus:ring-red-500" : "border-slate-300 focus:ring-blue-600"
-              } rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition-all text-slate-900 placeholder-slate-400`}
+              } rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition-all duration-200 text-slate-900 placeholder-slate-400`}
             />
             {errors.email && (
               <p className="text-xs text-red-500 mt-1 font-medium">{errors.email}</p>
@@ -96,7 +96,7 @@ export default function LoginPage() {
               placeholder="••••••••"
               className={`w-full px-4 py-2.5 bg-slate-50 border ${
                 errors.password ? "border-red-500 focus:ring-red-500" : "border-slate-300 focus:ring-blue-600"
-              } rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition-all text-slate-900 placeholder-slate-400`}
+              } rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition-all duration-200 text-slate-900 placeholder-slate-400`}
             />
             {errors.password && (
               <p className="text-xs text-red-500 mt-1 font-medium">{errors.password}</p>
@@ -106,7 +106,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] font-semibold text-sm text-white rounded-xl shadow-md shadow-blue-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] font-semibold text-sm text-white rounded-xl shadow-md shadow-blue-600/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
           >
             {isLoading ? (
               <>
@@ -142,7 +142,7 @@ export default function LoginPage() {
           Don't have a teacher account?{" "}
           <Link
             href="/signup"
-            className="text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+            className="text-blue-600 hover:text-blue-700 font-semibold transition-colors duration-200 hover:underline"
           >
             Create an account
           </Link>
