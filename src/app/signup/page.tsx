@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { authClient } from "@/lib/auth-client";
 import { signUpSchema } from "@/lib/validations";
+import { AlertCircle, X } from "lucide-react";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -18,10 +19,12 @@ export default function SignUpPage() {
     email?: string;
     password?: string;
   }>({});
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
+    setServerError(null);
 
     // Validate inputs with Zod
     const validationResult = signUpSchema.safeParse({ name, email, password });
@@ -48,14 +51,20 @@ export default function SignUpPage() {
       });
 
       if (error) {
-        toast.error(error.message || "Failed to create account. Please try again.");
+        const errorMsg =
+          error.message || error.statusText || "Failed to create account. Email may already be registered.";
+        setServerError(errorMsg);
+        toast.error(errorMsg);
       } else {
         toast.success("Account created successfully!");
         router.push("/subjects");
         router.refresh();
       }
-    } catch (err) {
-      toast.error("An unexpected error occurred.");
+    } catch (err: any) {
+      const errorMsg =
+        err?.message || err?.toString() || "Unable to connect to the authentication service.";
+      setServerError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -73,6 +82,23 @@ export default function SignUpPage() {
             Register as a teacher to get started with CAMS
           </p>
         </div>
+
+        {/* Server Error Alert Banner */}
+        {serverError && (
+          <div className="p-3.5 bg-red-50 border border-red-200/80 rounded-xl text-xs font-semibold text-red-700 flex items-start gap-2.5 animate-in fade-in duration-150">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+            <div className="flex-1 leading-snug">
+              <span>{serverError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setServerError(null)}
+              className="text-red-400 hover:text-red-600 p-0.5 rounded-md hover:bg-red-100 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -177,3 +203,4 @@ export default function SignUpPage() {
     </div>
   );
 }
+
