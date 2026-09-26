@@ -165,7 +165,7 @@ export default function LoginPage() {
         </form>
 
         <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-500">
-          Don't have a teacher account?{" "}
+          Don&apos;t have a teacher account?{" "}
           <Link
             href="/signup"
             className="text-blue-600 hover:text-blue-700 font-semibold transition-colors duration-200 hover:underline"
