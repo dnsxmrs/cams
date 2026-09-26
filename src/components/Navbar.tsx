@@ -47,7 +47,7 @@ export default function Navbar() {
   };
 
   const navLinks = [
-    { name: "Home", href: "/home", icon: LayoutDashboard },
+    // { name: "Home", href: "/home", icon: LayoutDashboard },
     { name: "Subjects", href: "/subjects", icon: BookOpen },
     { name: "Students", href: "/students", icon: Users },
     { name: "Attendance", href: "/sessions", icon: Calendar },
@@ -65,7 +65,7 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-16">
             {/* Brand Logo & Title */}
             <div className="flex items-center gap-8">
-              <Link href="/home" className="flex items-center gap-2.5 group">
+              <Link href="/subjects" className="flex items-center gap-2.5 group">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-500 text-white font-extrabold flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform duration-200">
                   <GraduationCap className="w-5 h-5" />
                 </div>
@@ -83,11 +83,10 @@ export default function Navbar() {
                     <Link
                       key={link.href}
                       href={link.href}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                        isActive
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
                           ? "bg-blue-50 text-blue-700 font-semibold shadow-xs"
                           : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80"
-                      }`}
+                        }`}
                     >
                       <IconComponent className="w-4 h-4" />
                       <span>{link.name}</span>
@@ -101,11 +100,10 @@ export default function Navbar() {
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all border shadow-xs ${
-                  isProfileOpen
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all border shadow-xs ${isProfileOpen
                     ? "bg-blue-50 border-blue-400 text-blue-600 ring-2 ring-blue-500/20"
                     : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
-                }`}
+                  }`}
                 aria-label="User Profile"
                 title="Profile & Options"
               >
@@ -165,11 +163,10 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`flex flex-col items-center gap-1 py-1 px-3 text-[11px] font-medium rounded-xl transition-all duration-200 ${
-                isActive
+              className={`flex flex-col items-center gap-1 py-1 px-3 text-[11px] font-medium rounded-xl transition-all duration-200 ${isActive
                   ? "text-blue-700 font-bold bg-blue-50/80"
                   : "text-slate-500 hover:text-slate-900"
-              }`}
+                }`}
             >
               <IconComponent className={`w-5 h-5 ${isActive ? "text-blue-600 scale-110" : "text-slate-500"} transition-transform duration-200`} />
               <span>{link.name}</span>

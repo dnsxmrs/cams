@@ -44,14 +44,14 @@ export default function SignUpPage() {
         email,
         password,
         name,
-        callbackURL: "/home",
+        callbackURL: "/subjects",
       });
 
       if (error) {
         toast.error(error.message || "Failed to create account. Please try again.");
       } else {
         toast.success("Account created successfully!");
-        router.push("/home");
+        router.push("/subjects");
         router.refresh();
       }
     } catch (err) {

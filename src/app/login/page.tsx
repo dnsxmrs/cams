@@ -36,14 +36,14 @@ export default function LoginPage() {
       const { error } = await authClient.signIn.email({
         email,
         password,
-        callbackURL: "/home",
+        callbackURL: "/subjects",
       });
 
       if (error) {
         toast.error(error.message || "Failed to log in. Please check your credentials.");
       } else {
         toast.success("Logged in successfully!");
-        router.push("/home");
+        router.push("/subjects");
         router.refresh();
       }
     } catch (err) {
