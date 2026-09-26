@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { authClient } from "@/lib/auth-client";
 import {
-  LayoutDashboard,
   BookOpen,
   Users,
   Calendar,
@@ -14,6 +13,8 @@ import {
   LogOut,
   GraduationCap,
   User,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 export default function Navbar() {
@@ -21,7 +22,21 @@ export default function Navbar() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  // Load saved theme preference on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if (savedTheme === "dark" || (!savedTheme && prefersDark)) {
+      setIsDarkMode(true);
+      document.documentElement.classList.add("dark");
+    } else {
+      setIsDarkMode(false);
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
@@ -33,6 +48,19 @@ export default function Navbar() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const setTheme = (toDark: boolean) => {
+    setIsDarkMode(toDark);
+    if (toDark) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+      toast.success("Switched to Dark Mode");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+      toast.success("Switched to Light Mode");
+    }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -47,7 +75,6 @@ export default function Navbar() {
   };
 
   const navLinks = [
-    // { name: "Home", href: "/home", icon: LayoutDashboard },
     { name: "Subjects", href: "/subjects", icon: BookOpen },
     { name: "Students", href: "/students", icon: Users },
     { name: "Attendance", href: "/sessions", icon: Calendar },
@@ -60,7 +87,7 @@ export default function Navbar() {
   return (
     <>
       {/* Top Header - Desktop & Mobile Header Bar */}
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
+      <header className="sticky top-0 z-40 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shadow-xs transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Brand Logo & Title */}
@@ -69,7 +96,7 @@ export default function Navbar() {
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-500 text-white font-extrabold flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform duration-200">
                   <GraduationCap className="w-5 h-5" />
                 </div>
-                <span className="font-extrabold text-slate-900 tracking-tight text-base sm:text-lg">
+                <span className="font-extrabold text-slate-900 dark:text-white tracking-tight text-base sm:text-lg">
                   CAMS Portal
                 </span>
               </Link>
@@ -83,10 +110,11 @@ export default function Navbar() {
                     <Link
                       key={link.href}
                       href={link.href}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
-                          ? "bg-blue-50 text-blue-700 font-semibold shadow-xs"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80"
-                        }`}
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                        isActive
+                          ? "bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-400 font-semibold shadow-xs"
+                          : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800/80"
+                      }`}
                     >
                       <IconComponent className="w-4 h-4" />
                       <span>{link.name}</span>
@@ -100,10 +128,11 @@ export default function Navbar() {
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all border shadow-xs ${isProfileOpen
-                    ? "bg-blue-50 border-blue-400 text-blue-600 ring-2 ring-blue-500/20"
-                    : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
-                  }`}
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all border shadow-xs ${
+                  isProfileOpen
+                    ? "bg-blue-50 dark:bg-blue-950/60 border-blue-400 text-blue-600 dark:text-blue-400 ring-2 ring-blue-500/20"
+                    : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white"
+                }`}
                 aria-label="User Profile"
                 title="Profile & Options"
               >
@@ -112,29 +141,70 @@ export default function Navbar() {
 
               {/* Profile Dropdown Popup */}
               {isProfileOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-2 px-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200/90 dark:border-slate-800 py-2 px-2.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                   {/* User Profile Info */}
-                  <div className="px-3 py-2 border-b border-slate-100 mb-1 flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 border border-slate-200">
+                  <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 mb-2 flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 border border-slate-200 dark:border-slate-700">
                       <User className="w-4 h-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">{userName}</p>
-                      <p className="text-[11px] text-slate-500 truncate">{userEmail}</p>
+                      <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
+                        {userName}
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        {userEmail}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Sleek Segmented Theme Toggle Switch */}
+                  <div className="px-1 py-1.5 border-b border-slate-100 dark:border-slate-800 mb-2">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-1 mb-1.5">
+                      <span>Appearance</span>
+                      <span className="font-mono text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">
+                        {isDarkMode ? "Dark" : "Light"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-800/90 rounded-xl border border-slate-200/80 dark:border-slate-700/80">
+                      <button
+                        type="button"
+                        onClick={() => setTheme(false)}
+                        className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          !isDarkMode
+                            ? "bg-white text-slate-900 shadow-xs border border-slate-200"
+                            : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                        }`}
+                      >
+                        <Sun className={`w-3.5 h-3.5 ${!isDarkMode ? "text-amber-500" : ""}`} />
+                        <span>Light</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setTheme(true)}
+                        className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          isDarkMode
+                            ? "bg-slate-900 text-white shadow-xs border border-slate-700"
+                            : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                        }`}
+                      >
+                        <Moon className={`w-3.5 h-3.5 ${isDarkMode ? "text-blue-400" : ""}`} />
+                        <span>Dark</span>
+                      </button>
                     </div>
                   </div>
 
                   {/* Profile Page Button (Disabled) */}
                   <button
                     disabled
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-slate-400 bg-slate-50/80 rounded-xl opacity-60 cursor-not-allowed mb-1"
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-slate-400 dark:text-slate-600 bg-slate-50/80 dark:bg-slate-800/40 rounded-xl opacity-60 cursor-not-allowed mb-1"
                     title="Profile page coming soon"
                   >
                     <span className="flex items-center gap-2">
-                      <User className="w-3.5 h-3.5 text-slate-400" />
+                      <User className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600" />
                       <span>Profile Page</span>
                     </span>
-                    <span className="text-[9px] uppercase font-bold text-slate-400 bg-slate-200/70 px-1.5 py-0.5 rounded">
+                    <span className="text-[9px] uppercase font-bold text-slate-400 dark:text-slate-600 bg-slate-200/70 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                       Disabled
                     </span>
                   </button>
@@ -142,9 +212,9 @@ export default function Navbar() {
                   {/* Sign Out Button */}
                   <button
                     onClick={handleSignOut}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors cursor-pointer"
                   >
-                    <LogOut className="w-3.5 h-3.5 text-red-500" />
+                    <LogOut className="w-3.5 h-3.5 text-red-500 dark:text-red-400" />
                     <span>Sign Out</span>
                   </button>
                 </div>
@@ -155,7 +225,7 @@ export default function Navbar() {
       </header>
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 flex items-center justify-around shadow-lg">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-3 py-2 flex items-center justify-around shadow-lg transition-colors">
         {navLinks.map((link) => {
           const IconComponent = link.icon;
           const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
@@ -163,12 +233,17 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`flex flex-col items-center gap-1 py-1 px-3 text-[11px] font-medium rounded-xl transition-all duration-200 ${isActive
-                  ? "text-blue-700 font-bold bg-blue-50/80"
-                  : "text-slate-500 hover:text-slate-900"
-                }`}
+              className={`flex flex-col items-center gap-1 py-1 px-3 text-[11px] font-medium rounded-xl transition-all duration-200 ${
+                isActive
+                  ? "text-blue-700 dark:text-blue-400 font-bold bg-blue-50/80 dark:bg-blue-950/60"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
             >
-              <IconComponent className={`w-5 h-5 ${isActive ? "text-blue-600 scale-110" : "text-slate-500"} transition-transform duration-200`} />
+              <IconComponent
+                className={`w-5 h-5 ${
+                  isActive ? "text-blue-600 dark:text-blue-400 scale-110" : "text-slate-500 dark:text-slate-400"
+                } transition-transform duration-200`}
+              />
               <span>{link.name}</span>
             </Link>
           );

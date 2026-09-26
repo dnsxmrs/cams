@@ -139,65 +139,54 @@ export default function StudentDirectoryPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-bold mb-2">
-            <Globe className="w-3.5 h-3.5" /> Centralized Database
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Global Student Directory</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Browse, search, and manage students in the school database before enrolling them into subjects.
-          </p>
-        </div>
-
-        <button
-          onClick={handleOpenAddModal}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" /> Add New Student
-        </button>
-      </div>
-
       {/* Search & Stats */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="relative flex-1 max-w-md">
           <input
             type="text"
             placeholder="Search by student number, name, or email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 focus:bg-white focus:outline-none transition-all"
+            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all"
           />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
         </div>
 
-        <div className="text-xs text-slate-500 font-medium flex items-center gap-2">
-          {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />}
-          <span>
-            Total Students: <span className="font-bold text-slate-900">{students.length}</span>
-          </span>
+        <div className="flex items-center justify-between sm:justify-end gap-4">
+          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2">
+            {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 dark:text-blue-400" />}
+            <span>
+              Total Students: <span className="font-bold text-slate-900 dark:text-white">{students.length}</span>
+            </span>
+          </div>
+
+          <button
+            onClick={handleOpenAddModal}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Add Student
+          </button>
         </div>
       </div>
 
       {/* Directory Table */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
         {isLoading && students.length === 0 ? (
-          <div className="p-12 text-center text-slate-500 text-xs flex flex-col items-center justify-center gap-2">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+          <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400" />
             <p>Loading global student directory...</p>
           </div>
         ) : students.length === 0 ? (
-          <div className="p-12 text-center text-slate-500 text-xs flex flex-col items-center justify-center gap-2">
-            <Globe className="w-8 h-8 text-slate-300" />
-            <p className="font-bold text-slate-700 text-sm">No students found</p>
-            <p>{search ? "No student matches your search criteria." : "The global directory is currently empty. Click 'Add New Student' to get started."}</p>
+          <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+            <Globe className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+            <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">No students found</p>
+            <p>{search ? "No student matches your search criteria." : "The global directory is currently empty. Click 'Add Student' to get started."}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[650px]">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
                   <th className="py-3.5 px-4">Student ID</th>
                   <th className="py-3.5 px-4">Full Name</th>
                   <th className="py-3.5 px-4">Email</th>
@@ -206,28 +195,28 @@ export default function StudentDirectoryPage() {
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                 {students.map((st) => (
-                  <tr key={st.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-blue-600">{st.studentNumber}</td>
-                    <td className="py-3.5 px-4 font-bold text-slate-900">{st.fullName}</td>
-                    <td className="py-3.5 px-4 text-slate-600">{st.email || "—"}</td>
-                    <td className="py-3.5 px-4 text-slate-500">{st.contactInfo || "—"}</td>
+                  <tr key={st.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="py-3.5 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">{st.studentNumber}</td>
+                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">{st.fullName}</td>
+                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{st.email || "—"}</td>
+                    <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">{st.contactInfo || "—"}</td>
                     <td className="py-3.5 px-4">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-bold">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold border border-blue-200/60 dark:border-blue-800">
                         <BookOpen className="w-3.5 h-3.5" /> {st._count.enrollments} Subjects
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-right space-x-3">
                       <button
                         onClick={() => handleOpenEditModal(st)}
-                        className="text-xs font-bold text-blue-600 hover:text-blue-800 inline-flex items-center gap-1 transition-colors"
+                        className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 inline-flex items-center gap-1 transition-colors"
                       >
                         <Edit2 className="w-3.5 h-3.5" /> Edit
                       </button>
                       <button
                         onClick={() => setDeletingStudent(st)}
-                        className="text-xs font-bold text-red-600 hover:text-red-800 inline-flex items-center gap-1 transition-colors"
+                        className="text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 inline-flex items-center gap-1 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" /> Delete
                       </button>
@@ -242,10 +231,10 @@ export default function StudentDirectoryPage() {
 
       {/* Add / Edit Student Modal */}
       {(isAddModalOpen || editingStudent) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100">
-              <h2 className="text-base font-bold text-slate-900">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
                 {editingStudent ? "Edit Student Details" : "Add New Student"}
               </h2>
               <button
@@ -253,7 +242,7 @@ export default function StudentDirectoryPage() {
                   setIsAddModalOpen(false);
                   setEditingStudent(null);
                 }}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -261,14 +250,14 @@ export default function StudentDirectoryPage() {
 
             <form onSubmit={handleSubmitForm} className="p-5 space-y-4">
               {formError && (
-                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-300 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
                   <span>{formError}</span>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Student Number / ID <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -276,13 +265,13 @@ export default function StudentDirectoryPage() {
                   placeholder="e.g. 2024-0001"
                   value={formData.studentNumber}
                   onChange={(e) => setFormData({ ...formData, studentNumber: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Full Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -290,13 +279,13 @@ export default function StudentDirectoryPage() {
                   placeholder="e.g. Ada Lovelace"
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Email Address <span className="text-slate-400 font-normal">(Optional)</span>
                 </label>
                 <input
@@ -304,12 +293,12 @@ export default function StudentDirectoryPage() {
                   placeholder="e.g. ada.lovelace@school.edu"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Contact Info / Phone <span className="text-slate-400 font-normal">(Optional)</span>
                 </label>
                 <input
@@ -317,18 +306,18 @@ export default function StudentDirectoryPage() {
                   placeholder="e.g. +1 555-0101"
                   value={formData.contactInfo}
                   onChange={(e) => setFormData({ ...formData, contactInfo: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none"
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-3">
+              <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => {
                     setIsAddModalOpen(false);
                     setEditingStudent(null);
                   }}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs rounded-xl transition-colors"
                 >
                   Cancel
                 </button>
@@ -348,19 +337,19 @@ export default function StudentDirectoryPage() {
 
       {/* Delete Confirmation Modal */}
       {deletingStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
-            <div className="flex items-center gap-3 text-red-600">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
               <AlertCircle className="w-6 h-6 shrink-0" />
-              <h2 className="text-base font-bold text-slate-900">Delete Student?</h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Delete Student?</h2>
             </div>
-            <p className="text-xs text-slate-600">
-              Are you sure you want to remove <strong className="text-slate-900">{deletingStudent.fullName}</strong> ({deletingStudent.studentNumber}) from the global directory? This will also remove their subject enrollments.
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              Are you sure you want to remove <strong className="text-slate-900 dark:text-white">{deletingStudent.fullName}</strong> ({deletingStudent.studentNumber}) from the global directory? This will also remove their subject enrollments.
             </p>
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 onClick={() => setDeletingStudent(null)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs rounded-xl transition-colors"
               >
                 Cancel
               </button>
