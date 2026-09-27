@@ -53,9 +53,17 @@ export default function TeacherHome() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
+  const fetchSubjects = async () => {
+    const res = await getTeacherSubjects();
+    if (res.success && res.data) {
+      setSubjects(res.data as SubjectWithCount[]);
+    }
+    setIsLoadingSubjects(false);
+  };
+
   useEffect(() => {
     let ignore = false;
-    async function loadSubjects() {
+    async function loadData() {
       const res = await getTeacherSubjects();
       if (!ignore) {
         if (res.success && res.data) {
@@ -64,7 +72,7 @@ export default function TeacherHome() {
         setIsLoadingSubjects(false);
       }
     }
-    loadSubjects();
+    loadData();
     return () => {
       ignore = true;
     };
@@ -92,7 +100,7 @@ export default function TeacherHome() {
       setNewSubjectName("");
       setNewSubjectDesc("");
       setIsCreateModalOpen(false);
-      fetchSubjects();
+      await fetchSubjects();
     } else {
       setFormError(res.error || "Failed to create subject.");
       toast.error(res.error || "Creation failed.");
