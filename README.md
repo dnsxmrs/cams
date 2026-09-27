@@ -217,7 +217,7 @@ erDiagram
 ### 1. Clone & Install Dependencies
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/dnsxmrs/cams.git
 cd cams
 npm install
 ```
@@ -239,6 +239,13 @@ BETTER_AUTH_URL="http://localhost:3000"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 NODE_ENV="development"
+
+# Nodemailer SMTP Mailer Configuration
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT=465
+SMTP_USER="your-email@gmail.com"
+SMTP_PASS="your-app-password"
+SMTP_FROM="Class Attendance Management System <your-email@gmail.com>"
 ```
 
 ---
