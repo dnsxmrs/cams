@@ -201,8 +201,8 @@ export default function StudentDirectoryPage() {
   return (
     <div className="space-y-6">
       {/* Search & Stats */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-start gap-3">
+        <div className="relative w-full sm:w-72">
           <input
             type="text"
             placeholder="Search by student number, name, or email..."
@@ -213,7 +213,7 @@ export default function StudentDirectoryPage() {
           <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
         </div>
 
-        <div className="flex items-center justify-between sm:justify-end gap-4">
+        <div className="flex items-center gap-3">
           <label className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-2 cursor-pointer">
             <Upload className="w-4 h-4" /> Import CSV
             <input
