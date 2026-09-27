@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
+import { useState, useEffect, useCallback, useMemo, useSyncExternalStore, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,6 +24,7 @@ import {
   FileSpreadsheet,
   AlertTriangle,
   FolderArchive,
+  MoreVertical,
 } from "lucide-react";
 import {
   getTeacherSubjects,
@@ -117,6 +118,23 @@ export default function SubjectsPage() {
   const [isLoadingArchived, setIsLoadingArchived] = useState<boolean>(false);
 
   const [search, setSearch] = useState("");
+
+  // Menu dropdown state
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close card action menu on click outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
+    }
+    if (openMenuId) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openMenuId]);
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -455,75 +473,115 @@ export default function SubjectsPage() {
                   activeTab === "archived"
                     ? "border-amber-200/80 dark:border-amber-950/60 bg-amber-50/20 dark:bg-amber-950/10"
                     : "border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
-                } rounded-2xl p-5 sm:p-6 shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between relative overflow-hidden`}
+                } rounded-2xl p-5 sm:p-6 shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between relative`}
               >
                 {/* Color Top Accent Stripe */}
                 <div
-                  className="absolute top-0 inset-x-0 h-1.5 transition-all"
+                  className="absolute top-0 inset-x-0 h-1.5 rounded-t-2xl transition-all"
                   style={{ backgroundColor: activeTab === "archived" ? "#f59e0b" : theme.hex }}
                 />
 
                 <div>
-                  {/* Header: Title, Code Badge, Counts, Actions */}
-                  <div className="flex flex-wrap items-start sm:items-center justify-between gap-2.5 mb-3 pt-1">
-                    <div className="flex items-center gap-2.5 flex-wrap">
+                  {/* Header: Title, Code Badge, Actions */}
+                  <div className="flex items-start justify-between gap-2.5 mb-3 pt-1">
+                    <div className="flex items-center gap-2.5 flex-wrap min-w-0 pr-1">
                       <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                         {sub.name}
                       </h2>
                       <span
-                        className={`px-2.5 py-0.5 rounded-md text-xs font-mono font-bold border ${theme.bg} ${theme.border} ${theme.text}`}
+                        className={`px-2.5 py-0.5 rounded-md text-xs font-mono font-bold border shrink-0 ${theme.bg} ${theme.border} ${theme.text}`}
                       >
                         {sub.code}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Export CSV Button */}
+                    {/* Three Dots Action Menu */}
+                    <div className="relative shrink-0" ref={openMenuId === sub.id ? menuRef : null}>
                       <button
-                        onClick={() => exportSubjectAttendanceCSV(sub.id, sub.code)}
-                        className="p-1.5 rounded-xl text-emerald-600 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200/70 dark:border-emerald-800/60 transition-all cursor-pointer shadow-2xs"
-                        title="Export Attendance to CSV/Excel"
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuId(openMenuId === sub.id ? null : sub.id);
+                        }}
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                          openMenuId === sub.id
+                            ? "bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white"
+                            : "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        }`}
+                        title="Subject options"
+                        aria-label="Subject options menu"
                       >
-                        <FileSpreadsheet className="w-3.5 h-3.5" />
+                        <MoreVertical className="w-4 h-4" />
                       </button>
 
-                      {activeTab === "active" ? (
-                        <>
+                      {openMenuId === sub.id && (
+                        <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200/90 dark:border-slate-800 py-1.5 px-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
                           <button
-                            onClick={() => handleOpenEditModal(sub)}
-                            className="p-1.5 rounded-xl text-blue-600 dark:text-blue-400 bg-blue-50/70 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200/70 dark:border-blue-800/60 transition-all cursor-pointer shadow-2xs"
-                            title="Edit Subject"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setArchivingSubject(sub)}
-                            className="p-1.5 rounded-xl text-amber-600 dark:text-amber-400 bg-amber-50/70 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200/70 dark:border-amber-800/60 transition-all cursor-pointer shadow-2xs"
-                            title="Archive Subject (Preserve Data)"
-                          >
-                            <Archive className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => handleUnarchiveSubject(sub)}
-                            className="p-1.5 rounded-xl text-emerald-600 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200/70 dark:border-emerald-800/60 transition-all cursor-pointer shadow-2xs"
-                            title="Restore Subject to Active"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                          </button>
-                          <button
+                            type="button"
                             onClick={() => {
-                              setDeleteConfirmCode("");
-                              setDeletingSubject(sub);
+                              setOpenMenuId(null);
+                              exportSubjectAttendanceCSV(sub.id, sub.code);
                             }}
-                            className="p-1.5 rounded-xl text-red-600 dark:text-red-400 bg-red-50/70 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 border border-red-200/70 dark:border-red-800/60 transition-all cursor-pointer shadow-2xs"
-                            title="Permanently Delete Subject"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 dark:hover:text-emerald-400 rounded-xl transition-colors cursor-pointer"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <span>Export Attendance</span>
                           </button>
-                        </>
+
+                          {activeTab === "active" ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  handleOpenEditModal(sub);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-colors cursor-pointer"
+                              >
+                                <Edit2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                <span>Edit Subject</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setArchivingSubject(sub);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-600 dark:hover:text-amber-400 rounded-xl transition-colors cursor-pointer"
+                              >
+                                <Archive className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                <span>Archive Subject</span>
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  handleUnarchiveSubject(sub);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-xl transition-colors cursor-pointer"
+                              >
+                                <RotateCcw className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                <span>Restore Subject</span>
+                              </button>
+                              <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setDeleteConfirmCode("");
+                                  setDeletingSubject(sub);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                <span>Delete Permanently</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
