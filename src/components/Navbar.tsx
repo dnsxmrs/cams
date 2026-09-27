@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { authClient } from "@/lib/auth-client";
@@ -11,7 +12,6 @@ import {
   Calendar,
   TrendingUp,
   LogOut,
-  GraduationCap,
   User,
   Sun,
   Moon,
@@ -99,8 +99,15 @@ export default function Navbar() {
             {/* Brand Logo & Title */}
             <div className="flex items-center gap-8">
               <Link href="/subjects" className="flex items-center gap-2.5 group">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-500 text-white font-extrabold flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform duration-200">
-                  <GraduationCap className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600/10 to-indigo-500/10 dark:from-blue-500/20 dark:to-indigo-400/20 border border-blue-200/60 dark:border-blue-700/50 flex items-center justify-center p-1 shadow-xs group-hover:scale-105 transition-transform duration-200">
+                  <Image
+                    src="/attendance logo1.webp"
+                    alt="CAMS Logo"
+                    width={28}
+                    height={28}
+                    className="w-7 h-7 object-contain"
+                    priority
+                  />
                 </div>
                 <span className="font-extrabold text-slate-900 dark:text-white tracking-tight text-base sm:text-lg">
                   CAMS Portal

@@ -20,6 +20,10 @@ const krub = Krub({
 export const metadata: Metadata = {
   title: "Class Attendance Management System (CAMS)",
   description: "Manage subjects, enroll students, and record attendance seamlessly.",
+  icons: {
+    icon: "/attendance logo1.ico",
+    apple: "/attendance logo1.webp",
+  },
 };
 
 export default function RootLayout({
