@@ -13,6 +13,7 @@ import {
   Search,
 } from "lucide-react";
 import { getAttendanceReports } from "@/actions/attendance";
+import Pagination from "@/app/components/Pagination";
 
 interface StudentReport {
   id: string;
@@ -62,6 +63,8 @@ export default function AttendanceReportsPage() {
   const [searchStudent, setSearchStudent] = useState("");
   const [subjectReports, setSubjectReports] = useState<SubjectReport[]>([]);
   const [studentReports, setStudentReports] = useState<StudentReport[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     let ignore = false;
@@ -159,6 +162,7 @@ export default function AttendanceReportsPage() {
       st.studentNumber.toLowerCase().includes(searchStudent.toLowerCase()) ||
       (st.email && st.email.toLowerCase().includes(searchStudent.toLowerCase()))
   );
+  const visibleStudents = filteredStudents.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-16">
@@ -314,7 +318,10 @@ export default function AttendanceReportsPage() {
               type="text"
               placeholder="Search student..."
               value={searchStudent}
-              onChange={(e) => setSearchStudent(e.target.value)}
+              onChange={(e) => {
+                setSearchStudent(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none transition-all"
             />
             <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-2.5 top-2" />
@@ -340,7 +347,7 @@ export default function AttendanceReportsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                {filteredStudents.map((st) => (
+                {visibleStudents.map((st) => (
                   <tr key={st.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="py-3.5 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">
                       {st.studentNumber}
@@ -374,6 +381,16 @@ export default function AttendanceReportsPage() {
                 ))}
               </tbody>
             </table>
+            <Pagination
+              page={currentPage}
+              pageSize={pageSize}
+              totalItems={filteredStudents.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+            />
           </div>
         ) : (
           <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-xs">

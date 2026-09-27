@@ -27,6 +27,7 @@ import {
   unenrollStudent,
 } from "@/actions/enrollments";
 import { formatSchedulesDisplay } from "@/app/(teacher)/subjects/page";
+import Pagination from "@/app/components/Pagination";
 
 interface Student {
   id: string;
@@ -66,6 +67,8 @@ export default function SubjectEnrollmentsPage({
   const [subject, setSubject] = useState<SubjectDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [rosterSearch, setRosterSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Modal State for Enrolling Students
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
@@ -88,6 +91,7 @@ export default function SubjectEnrollmentsPage({
     const res = await getSubjectEnrollments(subjectId);
     if (res.success && res.data) {
       setSubject(res.data as SubjectDetail);
+      setCurrentPage(1);
     } else {
       toast.error(res.error || "Failed to load subject details.");
     }
@@ -170,6 +174,10 @@ export default function SubjectEnrollmentsPage({
       item.student.studentNumber.toLowerCase().includes(rosterSearch.toLowerCase()) ||
       (item.student.email && item.student.email.toLowerCase().includes(rosterSearch.toLowerCase()))
   );
+  const visibleEnrollments = (filteredEnrollments || []).slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-16">
@@ -236,7 +244,10 @@ export default function SubjectEnrollmentsPage({
               type="text"
               placeholder="Search enrolled students..."
               value={rosterSearch}
-              onChange={(e) => setRosterSearch(e.target.value)}
+              onChange={(e) => {
+                setRosterSearch(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none transition-all"
             />
             <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
@@ -275,7 +286,7 @@ export default function SubjectEnrollmentsPage({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                    {filteredEnrollments.map((item) => (
+                    {visibleEnrollments.map((item) => (
                       <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                         <td className="py-3.5 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">
                           {item.student.studentNumber}
@@ -309,7 +320,7 @@ export default function SubjectEnrollmentsPage({
 
             {/* MOBILE CARD VIEW (visible on mobile, hidden on md+) - Avoids awkward table scrolling */}
             <div className="grid grid-cols-1 gap-3 md:hidden">
-              {filteredEnrollments.map((item) => (
+              {visibleEnrollments.map((item) => (
                 <div
                   key={item.id}
                   className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 shadow-2xs space-y-3"
@@ -358,6 +369,16 @@ export default function SubjectEnrollmentsPage({
                 </div>
               ))}
             </div>
+            <Pagination
+              page={currentPage}
+              pageSize={pageSize}
+              totalItems={filteredEnrollments.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+            />
           </>
         ) : (
           <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">

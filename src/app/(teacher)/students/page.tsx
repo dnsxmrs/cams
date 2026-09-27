@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Globe, Plus, Search, Edit2, Trash2, BookOpen, Loader2, X, AlertCircle, Upload } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { getStudents, createStudent, updateStudent, deleteStudent, importStudents } from "@/actions/students";
+import Pagination from "@/app/components/Pagination";
 
 interface StudentWithCount {
   id: string;
@@ -53,13 +54,15 @@ function parseStudentCsv(csv: string) {
         contactInfo: values[contactIndex >= 0 ? contactIndex : 3] || "",
       };
     })
-    .filter((student) => student.studentNumber && student.fullName);
+    .filter((student) => student.studentNumber || student.fullName || student.email || student.contactInfo);
 }
 
 export default function StudentDirectoryPage() {
   const [students, setStudents] = useState<StudentWithCount[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -81,7 +84,11 @@ export default function StudentDirectoryPage() {
     setIsLoading(true);
     const res = await getStudents(query);
     if (res.success && res.data) {
-      setStudents(res.data as StudentWithCount[]);
+      const sortedStudents = [...(res.data as StudentWithCount[])].sort((a, b) =>
+        a.fullName.localeCompare(b.fullName, undefined, { sensitivity: "base" })
+      );
+      setStudents(sortedStudents);
+      setCurrentPage(1);
     } else {
       toast.error(res.error || "Failed to load students");
     }
@@ -130,73 +137,103 @@ export default function StudentDirectoryPage() {
       setFormError("Full name is required.");
       return;
     }
-
-    setIsSubmitting(true);
-
-    if (editingStudent) {
-      const res = await updateStudent(editingStudent.id, formData);
-      if (res.success) {
-        toast.success("Student updated successfully!");
-        setEditingStudent(null);
-        resetForm();
-        fetchStudents(search);
-      } else {
-        setFormError(res.error || "Failed to update student.");
-        toast.error(res.error || "Update failed.");
-      }
-    } else {
-      const res = await createStudent(formData);
-      if (res.success) {
-        toast.success("Student added to global directory!");
-        setIsAddModalOpen(false);
-        resetForm();
-        fetchStudents(search);
-      } else {
-        setFormError(res.error || "Failed to add student.");
-        toast.error(res.error || "Creation failed.");
-      }
+    if (formData.fullName.trim().length < 2) {
+      setFormError("Full name must be at least 2 characters.");
+      return;
+    }
+    if (formData.email.trim() && !/^\S+@\S+\.\S+$/.test(formData.email.trim())) {
+      setFormError("Please enter a valid email address.");
+      return;
     }
 
-    setIsSubmitting(false);
+    setIsSubmitting(true);
+    try {
+      if (editingStudent) {
+        const res = await updateStudent(editingStudent.id, formData);
+        if (res.success) {
+          toast.success("Student updated successfully!");
+          setEditingStudent(null);
+          resetForm();
+          fetchStudents(search);
+        } else {
+          setFormError(res.error || "Failed to update student.");
+          toast.error(res.error || "Update failed.");
+        }
+      } else {
+        const res = await createStudent(formData);
+        if (res.success) {
+          toast.success("Student added to global directory!");
+          setIsAddModalOpen(false);
+          resetForm();
+          fetchStudents(search);
+        } else {
+          setFormError(res.error || "Failed to add student.");
+          toast.error(res.error || "Creation failed.");
+        }
+      }
+    } catch {
+      setFormError("The request failed. Check your connection and try again.");
+      toast.error("The request failed. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDeleteStudent = async () => {
     if (!deletingStudent) return;
     setIsSubmitting(true);
-
-    const res = await deleteStudent(deletingStudent.id);
-    if (res.success) {
-      toast.success("Student removed from directory.");
-      setDeletingStudent(null);
-      fetchStudents(search);
-    } else {
-      toast.error(res.error || "Failed to delete student.");
+    try {
+      const res = await deleteStudent(deletingStudent.id);
+      if (res.success) {
+        toast.success("Student removed from directory.");
+        setDeletingStudent(null);
+        fetchStudents(search);
+      } else {
+        toast.error(res.error || "Failed to delete student.");
+      }
+    } catch {
+      toast.error("The delete request failed. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
   };
 
   const handleImportCsv = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-
-    const studentsToImport = parseStudentCsv(await file.text());
-    if (studentsToImport.length === 0) {
-      toast.error("No valid student rows found. Include student number and full name columns.");
+    if (!file.name.toLowerCase().endsWith(".csv") && file.type !== "text/csv") {
+      toast.error("Please select a CSV file.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("CSV files must be smaller than 5 MB.");
       return;
     }
 
     setIsSubmitting(true);
-    const res = await importStudents(studentsToImport);
-    if (res.success) {
-      toast.success(`${res.imported} student${res.imported === 1 ? "" : "s"} imported${res.skipped ? `; ${res.skipped} duplicate${res.skipped === 1 ? "" : "s"} skipped` : ""}.`);
-      fetchStudents(search);
-    } else {
-      toast.error(res.error || "Failed to import students.");
+    try {
+      const studentsToImport = parseStudentCsv(await file.text());
+      if (studentsToImport.length === 0) {
+        toast.error("No student rows found in the CSV file.");
+        return;
+      }
+      const res = await importStudents(studentsToImport);
+      if (res.success) {
+        toast.success(`${res.imported} student${res.imported === 1 ? "" : "s"} imported${res.skipped ? `; ${res.skipped} duplicate${res.skipped === 1 ? "" : "s"} skipped` : ""}.`);
+        if (res.invalidRows?.length) toast.error(res.invalidRows.join(" "));
+        fetchStudents(search);
+      } else {
+        toast.error(res.error || "Failed to import students.");
+      }
+    } catch {
+      toast.error("The CSV import failed. Check the file and try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
+
+  const visibleStudents = students.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6">
@@ -207,7 +244,10 @@ export default function StudentDirectoryPage() {
             type="text"
             placeholder="Search by student number, name, or email..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all"
           />
           <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
@@ -260,7 +300,7 @@ export default function StudentDirectoryPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                {students.map((st) => (
+                {visibleStudents.map((st) => (
                   <tr key={st.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="py-3.5 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">{st.studentNumber}</td>
                     <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">{st.fullName}</td>
@@ -289,6 +329,16 @@ export default function StudentDirectoryPage() {
                 ))}
               </tbody>
             </table>
+            <Pagination
+              page={currentPage}
+              pageSize={pageSize}
+              totalItems={students.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+            />
           </div>
         )}
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
@@ -11,16 +11,15 @@ import {
   Clock,
   HelpCircle,
   Search,
-  Zap,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
   Calendar,
   BookOpen,
   UserCheck,
   AlertTriangle,
   History,
   ShieldCheck,
-  FileSpreadsheet,
-  Download,
 } from "lucide-react";
 import {
   getSubjectForSession,
@@ -28,7 +27,6 @@ import {
   createAttendanceSessionAndRecords,
 } from "@/actions/attendance";
 import { formatSchedulesDisplay, getColorTheme } from "@/app/(teacher)/subjects/page";
-import { exportSubjectAttendanceCSV } from "@/lib/exportAttendance";
 
 type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
 
@@ -74,6 +72,8 @@ export default function TakeAttendancePage({
   const [isLoading, setIsLoading] = useState(true);
   const [sessionTitle, setSessionTitle] = useState("");
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Map of studentId -> AttendanceStatus (Default to PRESENT)
@@ -132,16 +132,6 @@ export default function TakeAttendancePage({
     setStatusMap((prev) => ({ ...prev, [studentId]: status }));
   };
 
-  const setAllStatus = (status: AttendanceStatus) => {
-    if (!subject || todaySession) return;
-    const newMap: Record<string, AttendanceStatus> = {};
-    subject.enrollments.forEach((e) => {
-      newMap[e.student.id] = status;
-    });
-    setStatusMap(newMap);
-    toast.success(`Marked all students as ${status}`);
-  };
-
   const handleSubmit = async () => {
     if (todaySession) {
       toast.error("Attendance for this subject has already been recorded today.");
@@ -183,19 +173,20 @@ export default function TakeAttendancePage({
       (e.student.email && e.student.email.toLowerCase().includes(search.toLowerCase()))
   );
 
-  // Status Counts
-  const counts = Object.values(statusMap).reduce(
-    (acc, status) => {
-      acc[status] = (acc[status] || 0) + 1;
-      return acc;
-    },
-    { PRESENT: 0, ABSENT: 0, LATE: 0, EXCUSED: 0 } as Record<AttendanceStatus, number>
+  const sortedEnrollments = useMemo(
+    () => [...(filteredEnrollments || [])].sort((a, b) => a.student.fullName.localeCompare(b.student.fullName)),
+    [filteredEnrollments]
+  );
+  const totalPages = Math.max(1, Math.ceil(sortedEnrollments.length / pageSize));
+  const visibleEnrollments = sortedEnrollments.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
   );
 
   const theme = getColorTheme(subject?.color);
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-24">
+    <div className="space-y-6 max-w-5xl mx-auto">
       {/* Back Link & Export CSV */}
       <div className="flex items-center justify-between gap-3">
         <Link
@@ -205,7 +196,7 @@ export default function TakeAttendancePage({
           <ArrowLeft className="w-4 h-4" /> Back to Subjects
         </Link>
 
-        {subject && (
+        {/* {subject && (
           <button
             onClick={() => exportSubjectAttendanceCSV(subject.id, subject.code)}
             className="px-3.5 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/80 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer border border-emerald-300/60 dark:border-emerald-800"
@@ -213,7 +204,7 @@ export default function TakeAttendancePage({
             <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>Export Attendance CSV</span>
           </button>
-        )}
+        )} */}
       </div>
 
       {/* Header Banner */}
@@ -283,7 +274,7 @@ export default function TakeAttendancePage({
           </div>
 
           <Link
-            href={`/sessions/${todaySession.id}`}
+            href={`/history/${todaySession.id}`}
             className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 shrink-0 self-start sm:self-auto"
           >
             <History className="w-4 h-4" /> View Today&apos;s Session Log
@@ -315,82 +306,57 @@ export default function TakeAttendancePage({
         </div>
       )}
 
-      {/* Control Bar: Search, Bulk Actions, and Status Counter Badges */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-3">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          {/* Search */}
-          <div className="relative flex-1 max-w-md">
-            <input
-              type="text"
-              placeholder="Search student by name or ID..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none transition-all"
-            />
-            <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
-          </div>
-
-          {/* Quick Bulk Actions */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setAllStatus("PRESENT")}
-              disabled={!!todaySession || (subject?.enrollments.length || 0) === 0}
-              className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              Mark All Present
-            </button>
-            <button
-              onClick={() => setAllStatus("ABSENT")}
-              disabled={!!todaySession || (subject?.enrollments.length || 0) === 0}
-              className="px-3 py-1.5 bg-red-50 dark:bg-red-950/60 hover:bg-red-100 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <XCircle className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
-              Mark All Absent
-            </button>
-          </div>
-        </div>
-
-        {/* Live Status Counter Pill Grid */}
-        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3 flex-wrap text-xs">
-          <span className="text-slate-500 dark:text-slate-400 font-semibold">Summary:</span>
-          <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            {counts.PRESENT} Present
-          </span>
-          <span className="px-2.5 py-1 rounded-lg bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 font-bold border border-red-200 dark:border-red-800 flex items-center gap-1">
-            <XCircle className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
-            {counts.ABSENT} Absent
-          </span>
-          <span className="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-800 flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-            {counts.LATE} Late
-          </span>
-          <span className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-800 flex items-center gap-1">
-            <HelpCircle className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            {counts.EXCUSED} Excused
-          </span>
-        </div>
-      </div>
-
       {/* Roll Call Cards List */}
       {isLoading ? (
         <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-12 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
           <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400" />
           <p>Loading enrolled students...</p>
         </div>
-      ) : filteredEnrollments && filteredEnrollments.length > 0 ? (
-        <div className="space-y-3">
-          {filteredEnrollments.map((e) => {
+      ) : subject && subject.enrollments.length > 0 ? (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3 shadow-xs">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="relative w-full lg:w-72">
+              <input
+                type="text"
+                placeholder="Search student by name or ID..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none transition-all"
+              />
+              <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
+            </div>
+
+            {subject && subject.enrollments.length > 0 && !todaySession && (
+              <button
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                )}
+                Save Attendance
+              </button>
+            )}
+          </div>
+
+          {visibleEnrollments.length > 0 ? (
+            <div className="space-y-2">
+            {visibleEnrollments.map((e) => {
             const st = e.student;
             const currentStatus = statusMap[st.id] || "PRESENT";
 
             return (
               <div
                 key={st.id}
-                className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                className={`p-3 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                   currentStatus === "PRESENT"
-                    ? "bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800"
+                    ? "bg-transparent border-slate-200/90 dark:border-slate-800"
                     : currentStatus === "ABSENT"
                     ? "bg-red-50/40 dark:bg-red-950/20 border-red-200 dark:border-red-900/50"
                     : currentStatus === "LATE"
@@ -400,31 +366,28 @@ export default function TakeAttendancePage({
               >
                 {/* Student Info */}
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold flex items-center justify-center text-xs shrink-0 border border-slate-200 dark:border-slate-700">
+                  <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold flex items-center justify-center text-xs shrink-0 border border-slate-200 dark:border-slate-700">
                     {st.fullName.slice(0, 2).toUpperCase()}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400">
-                        {st.studentNumber}
-                      </span>
                       <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                         {st.fullName}
                       </h3>
+                      <span className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400">
+                        {st.studentNumber}
+                      </span>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {st.email || "No email"} {st.contactInfo ? `• ${st.contactInfo}` : ""}
-                    </p>
                   </div>
                 </div>
 
                 {/* Status Toggle Switcher Buttons */}
-                <div className="grid grid-cols-4 gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 self-stretch sm:self-auto">
+                <div className="grid grid-cols-4 gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 self-stretch sm:self-auto">
                   <button
                     type="button"
                     disabled={!!todaySession}
                     onClick={() => setSingleStatus(st.id, "PRESENT")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                       currentStatus === "PRESENT"
                         ? "bg-emerald-600 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -438,7 +401,7 @@ export default function TakeAttendancePage({
                     type="button"
                     disabled={!!todaySession}
                     onClick={() => setSingleStatus(st.id, "ABSENT")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                       currentStatus === "ABSENT"
                         ? "bg-red-600 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -452,7 +415,7 @@ export default function TakeAttendancePage({
                     type="button"
                     disabled={!!todaySession}
                     onClick={() => setSingleStatus(st.id, "LATE")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                       currentStatus === "LATE"
                         ? "bg-amber-600 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -466,7 +429,7 @@ export default function TakeAttendancePage({
                     type="button"
                     disabled={!!todaySession}
                     onClick={() => setSingleStatus(st.id, "EXCUSED")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                       currentStatus === "EXCUSED"
                         ? "bg-blue-600 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -478,7 +441,60 @@ export default function TakeAttendancePage({
                 </div>
               </div>
             );
-          })}
+            })}
+            </div>
+          ) : (
+            <div className="py-10 text-center text-slate-500 dark:text-slate-400 text-xs">
+              <BookOpen className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+              <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">No students found</p>
+              <p className="mt-1">No student matches &quot;{search}&quot;.</p>
+            </div>
+          )}
+
+          {sortedEnrollments.length > 0 && (
+            <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+              <span>Rows per page</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              >
+                {[5, 10, 20, 50].map((size) => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+              <span>of {sortedEnrollments.length}</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 dark:text-slate-400">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={currentPage === 1}
+                aria-label="Previous page"
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                disabled={currentPage === totalPages}
+                aria-label="Next page"
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-12 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
@@ -500,34 +516,6 @@ export default function TakeAttendancePage({
         </div>
       )}
 
-      {/* Floating Bottom Submit Bar */}
-      {subject && subject.enrollments.length > 0 && !todaySession && (
-        <div className="fixed bottom-0 inset-x-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 p-4 shadow-xl">
-          <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
-            <div className="text-xs">
-              <span className="font-bold text-slate-900 dark:text-white">
-                {Object.keys(statusMap).length} Students Ready
-              </span>
-              <p className="text-slate-500 dark:text-slate-400 text-[11px] hidden sm:block">
-                Press submit to save roll call session for today ({new Date().toLocaleDateString()})
-              </p>
-            </div>
-
-            <button
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
-            >
-              {isSubmitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Zap className="w-4 h-4" />
-              )}
-              Submit Attendance Session
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

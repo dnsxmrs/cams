@@ -12,6 +12,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { getTeacherAttendanceSessions, AttendanceStatus } from "@/actions/attendance";
+import Pagination from "@/app/components/Pagination";
 
 interface Student {
   id: string;
@@ -49,6 +50,8 @@ export default function SubjectHistoryPage({
 
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     let ignore = false;
@@ -60,6 +63,7 @@ export default function SubjectHistoryPage({
         const allSessions = res.data as SessionItem[];
         const filtered = allSessions.filter((s) => s.subjectId === subjectId);
         setSessions(filtered);
+        setCurrentPage(1);
       } else {
         toast.error(res.error || "Failed to load subject history.");
       }
@@ -124,7 +128,7 @@ export default function SubjectHistoryPage({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                {sessions.map((sess) => {
+                {sessions.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((sess) => {
                   const total = sess.records.length;
                   const presentCount = sess.records.filter(
                     (r) => r.status === "PRESENT" || r.status === "LATE"
@@ -154,7 +158,7 @@ export default function SubjectHistoryPage({
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <Link
-                          href={`/sessions/${sess.id}`}
+                          href={`/history/${sess.id}`}
                           className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition-all inline-flex items-center gap-1"
                         >
                           Review <ArrowRight className="w-3.5 h-3.5" />
@@ -165,6 +169,16 @@ export default function SubjectHistoryPage({
                 })}
               </tbody>
             </table>
+            <Pagination
+              page={currentPage}
+              pageSize={pageSize}
+              totalItems={sessions.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+            />
           </div>
         ) : (
           <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
