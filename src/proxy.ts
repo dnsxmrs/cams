@@ -6,7 +6,7 @@ import { auth } from "@/lib/auth";
 const publicAuthRoutes = ["/login", "/signup", "/forgot-password", "/verify-email"];
 
 // Protected portal routes (requires active session)
-const protectedRoutes = ["/subjects", "/students", "/sessions", "/reports", "/home"];
+const protectedRoutes = ["/subjects", "/students", "/history", "/reports", "/home"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

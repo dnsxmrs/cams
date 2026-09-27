@@ -195,7 +195,7 @@ export async function createAttendanceSessionAndRecords(
 
     revalidatePath(`/subjects/${subjectId}/attendance`);
     revalidatePath(`/subjects`);
-    revalidatePath(`/sessions`);
+    revalidatePath(`/history`);
     revalidatePath(`/home`);
     revalidatePath(`/reports`);
 
@@ -203,36 +203,6 @@ export async function createAttendanceSessionAndRecords(
   } catch (error: unknown) {
     console.error("Error creating attendance session:", error);
     const msg = error instanceof Error ? error.message : "Failed to submit attendance session.";
-    return { success: false, error: msg };
-  }
-}
-
-export async function updateAttendanceRecordStatus(
-  recordId: string,
-  newStatus: AttendanceStatus,
-  sessionId: string
-) {
-  try {
-    const authSession = await getSession();
-    if (!authSession || !authSession.user) {
-      return { success: false, error: "Unauthorized." };
-    }
-
-    const updated = await prisma.attendanceRecord.update({
-      where: { id: recordId },
-      data: { status: newStatus },
-      include: { student: true },
-    });
-
-    revalidatePath(`/sessions/${sessionId}`);
-    revalidatePath(`/sessions`);
-    revalidatePath(`/reports`);
-    revalidatePath(`/home`);
-
-    return { success: true, data: updated };
-  } catch (error: unknown) {
-    console.error("Error updating attendance record status:", error);
-    const msg = error instanceof Error ? error.message : "Failed to update status.";
     return { success: false, error: msg };
   }
 }

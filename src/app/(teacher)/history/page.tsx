@@ -13,6 +13,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { getTeacherAttendanceSessions, AttendanceStatus } from "@/actions/attendance";
+import Pagination from "@/app/components/Pagination";
 
 interface Student {
   id: string;
@@ -47,12 +48,15 @@ export default function SessionsLogPage() {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchSessions = useCallback(async (query?: string) => {
     setIsLoading(true);
     const res = await getTeacherAttendanceSessions(query);
     if (res.success && res.data) {
       setSessions(res.data as SessionItem[]);
+      setCurrentPage(1);
     } else {
       toast.error(res.error || "Failed to load session logs.");
     }
@@ -98,7 +102,10 @@ export default function SessionsLogPage() {
             type="text"
             placeholder="Search by session title, subject code or name..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none transition-all"
           />
           <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
@@ -132,7 +139,7 @@ export default function SessionsLogPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                {sessions.map((sess) => {
+                {sessions.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((sess) => {
                   const total = sess.records.length;
                   const presentCount = sess.records.filter(
                     (r) => r.status === "PRESENT" || r.status === "LATE"
@@ -217,7 +224,7 @@ export default function SessionsLogPage() {
                       {/* Action */}
                       <td className="py-3.5 px-4 text-right">
                         <Link
-                          href={`/sessions/${sess.id}`}
+                          href={`/history/${sess.id}`}
                           className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition-all inline-flex items-center gap-1"
                         >
                           <span>Review</span>
@@ -229,6 +236,16 @@ export default function SessionsLogPage() {
                 })}
               </tbody>
             </table>
+            <Pagination
+              page={currentPage}
+              pageSize={pageSize}
+              totalItems={sessions.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+            />
           </div>
         ) : (
           <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">

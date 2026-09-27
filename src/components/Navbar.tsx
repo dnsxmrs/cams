@@ -83,8 +83,8 @@ export default function Navbar() {
   const navLinks = [
     { name: "Subjects", href: "/subjects", icon: BookOpen },
     { name: "Students", href: "/students", icon: Users },
-    { name: "Attendance", href: "/sessions", icon: Calendar },
-    { name: "History", href: "/reports", icon: TrendingUp },
+    { name: "History", href: "/history", icon: Calendar },
+    { name: "Reports", href: "/reports", icon: TrendingUp },
   ];
 
   const userName = session?.user?.name || "Teacher Profile";
