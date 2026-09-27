@@ -29,9 +29,37 @@ export async function getSubjectForSession(subjectId: string) {
     }
 
     return { success: true, data: subject };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error fetching subject for session:", error);
     return { success: false, error: "Failed to load subject details.", data: null };
+  }
+}
+
+export async function getTodaySessionForSubject(subjectId: string) {
+  try {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const sessionRecord = await prisma.attendanceSession.findFirst({
+      where: {
+        subjectId,
+        sessionDate: {
+          gte: startOfToday,
+          lte: endOfToday,
+        },
+      },
+      include: {
+        records: true,
+      },
+    });
+
+    return { success: true, data: sessionRecord };
+  } catch (error: unknown) {
+    console.error("Error checking today session:", error);
+    return { success: false, data: null };
   }
 }
 
@@ -68,7 +96,7 @@ export async function getTeacherAttendanceSessions(searchQuery?: string) {
     });
 
     return { success: true, data: sessions };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error fetching attendance sessions:", error);
     return { success: false, error: "Failed to load attendance sessions.", data: [] };
   }
@@ -98,7 +126,7 @@ export async function getSessionById(sessionId: string) {
     }
 
     return { success: true, data: sessionRecord };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error fetching session by ID:", error);
     return { success: false, error: "Failed to load session details.", data: null };
   }
@@ -117,6 +145,30 @@ export async function createAttendanceSessionAndRecords(
 
     if (!records || records.length === 0) {
       return { success: false, error: "No student records provided to save." };
+    }
+
+    // Check if attendance session was already created today for this subject (Attendance strictly once per day)
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const existingTodaySession = await prisma.attendanceSession.findFirst({
+      where: {
+        subjectId,
+        sessionDate: {
+          gte: startOfToday,
+          lte: endOfToday,
+        },
+      },
+    });
+
+    if (existingTodaySession) {
+      return {
+        success: false,
+        error: "Attendance for this subject has already been taken today. You can only record attendance once per day.",
+      };
     }
 
     // 1. Create the AttendanceSession
@@ -148,9 +200,10 @@ export async function createAttendanceSessionAndRecords(
     revalidatePath(`/reports`);
 
     return { success: true, data: sessionRecord };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error creating attendance session:", error);
-    return { success: false, error: error.message || "Failed to submit attendance session." };
+    const msg = error instanceof Error ? error.message : "Failed to submit attendance session.";
+    return { success: false, error: msg };
   }
 }
 
@@ -177,9 +230,10 @@ export async function updateAttendanceRecordStatus(
     revalidatePath(`/home`);
 
     return { success: true, data: updated };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error updating attendance record status:", error);
-    return { success: false, error: error.message || "Failed to update status." };
+    const msg = error instanceof Error ? error.message : "Failed to update status.";
+    return { success: false, error: msg };
   }
 }
 
@@ -222,7 +276,7 @@ export async function getAttendanceReports() {
     });
 
     return { success: true, data: { subjects, students } };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error generating attendance reports:", error);
     return { success: false, error: "Failed to generate attendance reports.", data: null };
   }

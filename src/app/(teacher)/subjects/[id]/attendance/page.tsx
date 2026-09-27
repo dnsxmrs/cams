@@ -14,14 +14,18 @@ import {
   Zap,
   Loader2,
   Calendar,
-  Users,
   BookOpen,
   UserCheck,
+  AlertTriangle,
+  History,
+  ShieldCheck,
 } from "lucide-react";
 import {
   getSubjectForSession,
+  getTodaySessionForSubject,
   createAttendanceSessionAndRecords,
 } from "@/actions/attendance";
+import { formatSchedulesDisplay, getColorTheme } from "@/app/(teacher)/subjects/page";
 
 type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
 
@@ -43,7 +47,15 @@ interface SubjectDetail {
   code: string;
   name: string;
   description: string | null;
+  schedules: string | null;
+  color: string | null;
   enrollments: EnrollmentItem[];
+}
+
+interface TodaySessionInfo {
+  id: string;
+  title: string | null;
+  records: Array<{ id: string }>;
 }
 
 export default function TakeAttendancePage({
@@ -55,6 +67,7 @@ export default function TakeAttendancePage({
   const router = useRouter();
 
   const [subject, setSubject] = useState<SubjectDetail | null>(null);
+  const [todaySession, setTodaySession] = useState<TodaySessionInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sessionTitle, setSessionTitle] = useState("");
   const [search, setSearch] = useState("");
@@ -65,9 +78,13 @@ export default function TakeAttendancePage({
 
   const fetchSubject = useCallback(async () => {
     setIsLoading(true);
-    const res = await getSubjectForSession(subjectId);
-    if (res.success && res.data) {
-      const sub = res.data as SubjectDetail;
+    const [subRes, todayRes] = await Promise.all([
+      getSubjectForSession(subjectId),
+      getTodaySessionForSubject(subjectId),
+    ]);
+
+    if (subRes.success && subRes.data) {
+      const sub = subRes.data as SubjectDetail;
       setSubject(sub);
 
       // Initialize all enrolled students to PRESENT
@@ -85,8 +102,15 @@ export default function TakeAttendancePage({
       });
       setSessionTitle(`Attendance - ${todayStr}`);
     } else {
-      toast.error(res.error || "Failed to load subject for attendance.");
+      toast.error(subRes.error || "Failed to load subject for attendance.");
     }
+
+    if (todayRes.success && todayRes.data) {
+      setTodaySession(todayRes.data as TodaySessionInfo);
+    } else {
+      setTodaySession(null);
+    }
+
     setIsLoading(false);
   }, [subjectId]);
 
@@ -95,11 +119,12 @@ export default function TakeAttendancePage({
   }, [fetchSubject]);
 
   const setSingleStatus = (studentId: string, status: AttendanceStatus) => {
+    if (todaySession) return; // Locked if taken today
     setStatusMap((prev) => ({ ...prev, [studentId]: status }));
   };
 
   const setAllStatus = (status: AttendanceStatus) => {
-    if (!subject) return;
+    if (!subject || todaySession) return;
     const newMap: Record<string, AttendanceStatus> = {};
     subject.enrollments.forEach((e) => {
       newMap[e.student.id] = status;
@@ -109,6 +134,11 @@ export default function TakeAttendancePage({
   };
 
   const handleSubmit = async () => {
+    if (todaySession) {
+      toast.error("Attendance for this subject has already been recorded today.");
+      return;
+    }
+
     if (!subject || subject.enrollments.length === 0) {
       toast.error("No enrolled students to record.");
       return;
@@ -153,6 +183,8 @@ export default function TakeAttendancePage({
     { PRESENT: 0, ABSENT: 0, LATE: 0, EXCUSED: 0 } as Record<AttendanceStatus, number>
   );
 
+  const theme = getColorTheme(subject?.color);
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-24">
       {/* Back Link */}
@@ -164,10 +196,18 @@ export default function TakeAttendancePage({
       </Link>
 
       {/* Header Banner */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden">
+        {/* Color Accent Stripe */}
+        <div
+          className="absolute top-0 inset-x-0 h-1.5"
+          style={{ backgroundColor: theme.hex }}
+        />
+
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+          <div className="flex items-center gap-2 mb-2 pt-1">
+            <span
+              className={`px-2.5 py-0.5 rounded-md text-xs font-mono font-bold border ${theme.bg} ${theme.border} ${theme.text}`}
+            >
               {subject?.code || "CS101"}
             </span>
             <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold flex items-center gap-1">
@@ -182,8 +222,9 @@ export default function TakeAttendancePage({
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
             Take Attendance &bull; {subject?.name || "Subject"}
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Toggle status for each enrolled student and submit session records.
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-slate-400" />
+            <span>{formatSchedulesDisplay(subject?.schedules, subject?.description)}</span>
           </p>
         </div>
 
@@ -195,12 +236,63 @@ export default function TakeAttendancePage({
           <input
             type="text"
             value={sessionTitle}
+            disabled={!!todaySession}
             onChange={(e) => setSessionTitle(e.target.value)}
             placeholder="e.g. Lecture 5 - Loops & Arrays"
-            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none transition-all font-medium"
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none transition-all font-medium disabled:opacity-60"
           />
         </div>
       </div>
+
+      {/* ATTENDANCE ALREADY TAKEN TODAY WARNING BANNER */}
+      {todaySession && (
+        <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl shrink-0">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold leading-tight">
+                Today&apos;s Attendance Already Submitted
+              </h3>
+              <p className="text-xs opacity-90 mt-1 leading-relaxed">
+                Attendance for <strong className="font-bold">{subject?.code}</strong> was already taken today ({new Date().toLocaleDateString()}). Attendance can strictly only be taken once per day.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href={`/sessions/${todaySession.id}`}
+            className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 shrink-0 self-start sm:self-auto"
+          >
+            <History className="w-4 h-4" /> View Today&apos;s Session Log
+          </Link>
+        </div>
+      )}
+
+      {/* NO STUDENTS ENROLLED BANNER */}
+      {subject && subject.enrollments.length === 0 && (
+        <div className="p-5 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-900 dark:text-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-xl shrink-0">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold leading-tight">No Students Enrolled</h3>
+              <p className="text-xs opacity-90 mt-1 leading-relaxed">
+                You cannot take attendance because there are no students enrolled in <strong className="font-bold">{subject.code}</strong> yet.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href={`/subjects/${subjectId}/enrollments`}
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 shrink-0 self-start sm:self-auto"
+          >
+            <UserCheck className="w-4 h-4" /> Enroll Students Now
+          </Link>
+        </div>
+      )}
 
       {/* Control Bar: Search, Bulk Actions, and Status Counter Badges */}
       <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-3">
@@ -221,14 +313,16 @@ export default function TakeAttendancePage({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setAllStatus("PRESENT")}
-              className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+              disabled={!!todaySession || (subject?.enrollments.length || 0) === 0}
+              className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               Mark All Present
             </button>
             <button
               onClick={() => setAllStatus("ABSENT")}
-              className="px-3 py-1.5 bg-red-50 dark:bg-red-950/60 hover:bg-red-100 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+              disabled={!!todaySession || (subject?.enrollments.length || 0) === 0}
+              className="px-3 py-1.5 bg-red-50 dark:bg-red-950/60 hover:bg-red-100 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <XCircle className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
               Mark All Absent
@@ -307,8 +401,9 @@ export default function TakeAttendancePage({
                 <div className="grid grid-cols-4 gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 self-stretch sm:self-auto">
                   <button
                     type="button"
+                    disabled={!!todaySession}
                     onClick={() => setSingleStatus(st.id, "PRESENT")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                       currentStatus === "PRESENT"
                         ? "bg-emerald-600 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -320,8 +415,9 @@ export default function TakeAttendancePage({
 
                   <button
                     type="button"
+                    disabled={!!todaySession}
                     onClick={() => setSingleStatus(st.id, "ABSENT")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                       currentStatus === "ABSENT"
                         ? "bg-red-600 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -333,8 +429,9 @@ export default function TakeAttendancePage({
 
                   <button
                     type="button"
+                    disabled={!!todaySession}
                     onClick={() => setSingleStatus(st.id, "LATE")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                       currentStatus === "LATE"
                         ? "bg-amber-600 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -346,8 +443,9 @@ export default function TakeAttendancePage({
 
                   <button
                     type="button"
+                    disabled={!!todaySession}
                     onClick={() => setSingleStatus(st.id, "EXCUSED")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                       currentStatus === "EXCUSED"
                         ? "bg-blue-600 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -382,7 +480,7 @@ export default function TakeAttendancePage({
       )}
 
       {/* Floating Bottom Submit Bar */}
-      {subject && subject.enrollments.length > 0 && (
+      {subject && subject.enrollments.length > 0 && !todaySession && (
         <div className="fixed bottom-0 inset-x-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 p-4 shadow-xl">
           <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
             <div className="text-xs">
@@ -390,7 +488,7 @@ export default function TakeAttendancePage({
                 {Object.keys(statusMap).length} Students Ready
               </span>
               <p className="text-slate-500 dark:text-slate-400 text-[11px] hidden sm:block">
-                Press submit to save roll call session to database
+                Press submit to save roll call session for today ({new Date().toLocaleDateString()})
               </p>
             </div>
 
