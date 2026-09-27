@@ -23,14 +23,18 @@ export const auth = betterAuth({
       sendVerificationOTP: async ({ email, otp, type }) => {
         console.log(`[DEV VERIFICATION OTP] Email: ${email} | Type: ${type} | OTP: ${otp}`);
 
+        const isForgot = type === "forget-password";
+
         const html = getVerificationEmailTemplate({
           name: "Teacher",
           otp,
+          title: isForgot ? "Reset Your CAMS Password" : "Verify Your Email Address",
+          subtitle: isForgot ? "Your 6-Digit Password Reset Code" : "Your 6-Digit Verification Code",
         });
 
         await sendEmail({
           to: email,
-          subject: `Your ${type === "email-verification" ? "Verification" : "Security"} Code: ${otp} - CAMS`,
+          subject: `Your ${isForgot ? "Password Reset" : "Verification"} Code: ${otp} - CAMS`,
           html,
         });
       },
