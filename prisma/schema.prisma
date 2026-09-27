@@ -98,6 +98,8 @@ model Subject {
   code        String
   name        String
   description String?
+  schedules   String?             // Stored as JSON string e.g. [{"day":"MON","startTime":"08:00","endTime":"10:00"}]
+  color       String?             @default("blue")
   teacherId   String
   teacher     User                @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   createdAt   DateTime            @default(now())

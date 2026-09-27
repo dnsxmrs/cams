@@ -40,7 +40,7 @@ export async function getTeacherSubjects(searchQuery?: string) {
     });
 
     return { success: true, data: subjects };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error fetching subjects:", error);
     return { success: false, error: "Failed to load subjects.", data: [] };
   }
@@ -78,6 +78,8 @@ export async function createSubject(input: SubjectInput) {
         code: formattedCode,
         name: validated.name.trim(),
         description: validated.description?.trim() || null,
+        schedules: validated.schedules || null,
+        color: validated.color || "blue",
         teacherId: session.user.id,
       },
     });
@@ -85,9 +87,10 @@ export async function createSubject(input: SubjectInput) {
     revalidatePath("/subjects");
     revalidatePath("/home");
     return { success: true, data: subject };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error creating subject:", error);
-    const errorMsg = error?.errors?.[0]?.message || error.message || "Failed to create subject.";
+    const errorMsg =
+      error instanceof Error ? error.message : "Failed to create subject.";
     return { success: false, error: errorMsg };
   }
 }
@@ -136,6 +139,8 @@ export async function updateSubject(id: string, input: SubjectInput) {
         code: formattedCode,
         name: validated.name.trim(),
         description: validated.description?.trim() || null,
+        schedules: validated.schedules || null,
+        color: validated.color || "blue",
       },
     });
 
@@ -172,8 +177,9 @@ export async function deleteSubject(id: string) {
     revalidatePath("/subjects");
     revalidatePath("/home");
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error deleting subject:", error);
-    return { success: false, error: error.message || "Failed to delete subject." };
+    const msg = error instanceof Error ? error.message : "Failed to delete subject.";
+    return { success: false, error: msg };
   }
 }
