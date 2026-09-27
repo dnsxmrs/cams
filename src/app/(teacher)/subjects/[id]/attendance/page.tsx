@@ -19,6 +19,8 @@ import {
   AlertTriangle,
   History,
   ShieldCheck,
+  FileSpreadsheet,
+  Download,
 } from "lucide-react";
 import {
   getSubjectForSession,
@@ -26,6 +28,7 @@ import {
   createAttendanceSessionAndRecords,
 } from "@/actions/attendance";
 import { formatSchedulesDisplay, getColorTheme } from "@/app/(teacher)/subjects/page";
+import { exportSubjectAttendanceCSV } from "@/lib/exportAttendance";
 
 type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
 
@@ -193,13 +196,25 @@ export default function TakeAttendancePage({
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-24">
-      {/* Back Link */}
-      <Link
-        href="/subjects"
-        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" /> Back to Subjects
-      </Link>
+      {/* Back Link & Export CSV */}
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          href="/subjects"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to Subjects
+        </Link>
+
+        {subject && (
+          <button
+            onClick={() => exportSubjectAttendanceCSV(subject.id, subject.code)}
+            className="px-3.5 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/80 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer border border-emerald-300/60 dark:border-emerald-800"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Export Attendance CSV</span>
+          </button>
+        )}
+      </div>
 
       {/* Header Banner */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden">
