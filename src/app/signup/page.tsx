@@ -36,6 +36,8 @@ export default function SignUpPage() {
     { label: "One special character (!@#$%...)", valid: /[^A-Za-z0-9]/.test(password) },
   ];
 
+  const isPasswordValid = passwordChecks.every((check) => check.valid);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -192,7 +194,11 @@ export default function SignUpPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className={`w-full pl-10 pr-11 py-3 bg-slate-800/80 border ${
-                  errors.password ? "border-red-500 focus:ring-red-500" : "border-slate-700/80 focus:ring-blue-500 focus:border-blue-500"
+                  errors.password
+                    ? "border-red-500 focus:ring-red-500"
+                    : isPasswordValid
+                    ? "border-emerald-500/80 focus:ring-emerald-500"
+                    : "border-slate-700/80 focus:ring-blue-500 focus:border-blue-500"
                 } rounded-xl text-sm focus:outline-none focus:ring-2 text-white placeholder-slate-500 transition-all duration-200`}
               />
               <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -209,30 +215,37 @@ export default function SignUpPage() {
             {errors.password && (
               <p className="text-xs text-red-400 mt-1.5 font-medium">{errors.password}</p>
             )}
+            {isPasswordValid && !errors.password && (
+              <p className="text-xs text-emerald-400 mt-1.5 font-medium flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Password criteria met
+              </p>
+            )}
 
-            {/* LIVE PASSWORD REQUIREMENTS CHECKLIST (DISPLAYED ONLY HERE) */}
-            <div className="mt-3 p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                Password Requirements:
-              </span>
-              <div className="grid grid-cols-1 gap-1 text-[11px]">
-                {passwordChecks.map((item) => (
-                  <div
-                    key={item.label}
-                    className={`flex items-center gap-2 transition-colors ${
-                      item.valid ? "text-emerald-400 font-semibold" : "text-slate-500"
-                    }`}
-                  >
-                    {item.valid ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    ) : (
-                      <Circle className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-                    )}
-                    <span>{item.label}</span>
-                  </div>
-                ))}
+            {/* LIVE PASSWORD REQUIREMENTS CHECKLIST (HIDDEN ONCE ALL CONDITIONS MET) */}
+            {!isPasswordValid && (
+              <div className="mt-3 p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                  Password Requirements:
+                </span>
+                <div className="grid grid-cols-1 gap-1 text-[11px]">
+                  {passwordChecks.map((item) => (
+                    <div
+                      key={item.label}
+                      className={`flex items-center gap-2 transition-colors ${
+                        item.valid ? "text-emerald-400 font-semibold" : "text-slate-500"
+                      }`}
+                    >
+                      {item.valid ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      ) : (
+                        <Circle className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                      )}
+                      <span>{item.label}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Confirm Password Field */}

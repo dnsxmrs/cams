@@ -179,7 +179,8 @@ function VerifyEmailContent() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="teacher@school.edu"
             required
-            className="w-full px-4 py-3 bg-slate-800/80 border border-slate-700/80 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-slate-500 transition-all"
+            disabled
+            className="w-full px-4 py-3 bg-slate-800/40 border border-slate-700/50 rounded-xl text-sm text-slate-400 placeholder-slate-500 transition-all disabled:opacity-75 disabled:cursor-not-allowed select-none"
           />
         </div>
 
