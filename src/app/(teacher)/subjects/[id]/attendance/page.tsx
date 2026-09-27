@@ -239,7 +239,6 @@ export default function TakeAttendancePage({
             Take Attendance &bull; {subject?.name || "Subject"}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-slate-400" />
             <span>{formatSchedulesDisplay(subject?.schedules, subject?.description)}</span>
           </p>
         </div>

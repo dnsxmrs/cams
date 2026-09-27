@@ -15,9 +15,6 @@ export default async function HomeLayout({
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-page-entry">
         {children}
       </main>
-      <footer className="border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 py-6 text-center text-xs text-slate-500 dark:text-slate-400 transition-colors">
-        Class Attendance Management System (CAMS) &copy; {new Date().getFullYear()} &bull; Built with Next.js & Prisma | dnsxmrs
-      </footer>
     </div>
   );
 }

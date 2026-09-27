@@ -241,6 +241,11 @@ export async function getAttendanceReports() {
           },
         },
       },
+      orderBy: [
+        { lastName: "asc" },
+        { firstName: "asc" },
+        { middleInitial: "asc" },
+      ],
     });
 
     return { success: true, data: { subjects, students } };

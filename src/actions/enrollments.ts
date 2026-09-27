@@ -14,7 +14,9 @@ export async function getSubjectEnrollments(subjectId: string) {
             student: true,
           },
           orderBy: {
-            enrolledAt: "desc",
+            student: {
+              lastName: "asc",
+            },
           },
         },
       },

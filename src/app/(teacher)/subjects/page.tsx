@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import {
   Plus,
-  Clock,
   Users,
   Zap,
   Search,
@@ -23,7 +22,6 @@ import {
   Archive,
   RotateCcw,
   FileSpreadsheet,
-  Download,
   AlertTriangle,
   FolderArchive,
 } from "lucide-react";
@@ -99,7 +97,7 @@ export function formatSchedulesDisplay(schedulesJson?: string | null, fallbackDe
     if (!Array.isArray(slots) || slots.length === 0) return fallbackDesc || "No schedule specified";
     return slots
       .map((s) => `${s.day} ${formatTime12h(s.startTime)}-${formatTime12h(s.endTime)}`)
-      .join(" • ");
+      .join(" | ");
   } catch {
     return fallbackDesc || "No schedule specified";
   }
@@ -171,15 +169,16 @@ export default function SubjectsPage() {
 
   // Fetch dataset on mount or when tab changes IF NOT YET FETCHED
   useEffect(() => {
-    if (activeTab === "active") {
-      if (activeSubjects === null) {
-        fetchActive();
+    async function loadCurrentTab() {
+      if (activeTab === "active" && activeSubjects === null) {
+        await fetchActive();
       }
-    } else {
-      if (archivedSubjects === null) {
-        fetchArchived();
+      if (activeTab === "archived" && archivedSubjects === null) {
+        await fetchArchived();
       }
     }
+
+    loadCurrentTab();
   }, [activeTab, activeSubjects, archivedSubjects, fetchActive, fetchArchived]);
 
   // Refresh datasets after data mutations (create, edit, archive, unarchive, delete)
@@ -188,7 +187,10 @@ export default function SubjectsPage() {
   };
 
   // Currently selected dataset based on activeTab
-  const currentDataset = activeTab === "active" ? (activeSubjects || []) : (archivedSubjects || []);
+  const currentDataset = useMemo(
+    () => (activeTab === "active" ? (activeSubjects || []) : (archivedSubjects || [])),
+    [activeTab, activeSubjects, archivedSubjects]
+  );
 
   // Instant client-side search filtering over stored dataset
   const filteredSubjects = useMemo(() => {
@@ -476,11 +478,6 @@ export default function SubjectsPage() {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100/90 dark:bg-slate-800 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                        {sub._count.enrollments} Enrolled
-                      </span>
-
                       {/* Export CSV Button */}
                       <button
                         onClick={() => exportSubjectAttendanceCSV(sub.id, sub.code)}
@@ -531,9 +528,14 @@ export default function SubjectsPage() {
                     </div>
                   </div>
 
+                  {/* Enrollment Count */}
+                  <div className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span>{sub._count.enrollments} Enrolled Students</span>
+                  </div>
+
                   {/* Schedule Display */}
                   <div className="mt-2.5 flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
-                    <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
                     <span className="leading-relaxed">{scheduleSummary}</span>
                   </div>
                 </div>
@@ -548,14 +550,6 @@ export default function SubjectsPage() {
                       <UserCheck className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                       <span>Enroll Students</span>
                     </Link>
-
-                    {/* <button
-                      onClick={() => exportSubjectAttendanceCSV(sub.id, sub.code)}
-                      className="px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer border border-emerald-200/60 dark:border-emerald-800/60"
-                    >
-                      <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>Export CSV</span>
-                    </button> */}
                   </div>
 
                   {activeTab === "active" ? (

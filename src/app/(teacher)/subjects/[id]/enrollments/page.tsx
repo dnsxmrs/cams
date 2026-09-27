@@ -15,7 +15,6 @@ import {
   X,
   AlertCircle,
   Plus,
-  Clock,
   Mail,
   Phone,
   Calendar,
@@ -227,7 +226,6 @@ export default function SubjectEnrollmentsPage({
         ) : (
           <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
               <span>{formatSchedulesDisplay(subject?.schedules, subject?.description)}</span>
             </div>
             <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
