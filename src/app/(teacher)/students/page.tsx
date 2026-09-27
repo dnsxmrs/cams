@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Globe, Plus, Search, Edit2, Trash2, BookOpen, Loader2, X, AlertCircle } from "lucide-react";
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
+import { Globe, Plus, Search, Edit2, Trash2, BookOpen, Loader2, X, AlertCircle, Upload } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { getStudents, createStudent, updateStudent, deleteStudent } from "@/actions/students";
+import { getStudents, createStudent, updateStudent, deleteStudent, importStudents } from "@/actions/students";
 
 interface StudentWithCount {
   id: string;
@@ -16,6 +17,43 @@ interface StudentWithCount {
   _count: {
     enrollments: number;
   };
+}
+
+const emptySubscribe = () => () => {};
+
+function parseCsvLine(line: string) {
+  return line
+    .split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
+    .map((value) => value.trim().replace(/^"|"$/g, "").replace(/""/g, '"'));
+}
+
+function parseStudentCsv(csv: string) {
+  const lines = csv.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length === 0) return [];
+
+  const firstRow = parseCsvLine(lines[0]).map((value) => value.toLowerCase().replace(/[^a-z]/g, ""));
+  const hasHeader = firstRow.some((value) =>
+    ["studentnumber", "studentid", "id", "fullname", "name"].includes(value)
+  );
+  const headers = hasHeader ? firstRow : ["studentnumber", "fullname", "email", "contactinfo"];
+  const rows = hasHeader ? lines.slice(1) : lines;
+  const indexOf = (names: string[]) => headers.findIndex((header) => names.includes(header));
+  const studentNumberIndex = indexOf(["studentnumber", "studentid", "id"]);
+  const fullNameIndex = indexOf(["fullname", "name"]);
+  const emailIndex = indexOf(["email", "emailaddress"]);
+  const contactIndex = indexOf(["contact", "contactinfo", "phone", "phonenumber"]);
+
+  return rows
+    .map((line) => {
+      const values = parseCsvLine(line);
+      return {
+        studentNumber: values[studentNumberIndex >= 0 ? studentNumberIndex : 0] || "",
+        fullName: values[fullNameIndex >= 0 ? fullNameIndex : 1] || "",
+        email: values[emailIndex >= 0 ? emailIndex : 2] || "",
+        contactInfo: values[contactIndex >= 0 ? contactIndex : 3] || "",
+      };
+    })
+    .filter((student) => student.studentNumber && student.fullName);
 }
 
 export default function StudentDirectoryPage() {
@@ -37,6 +75,7 @@ export default function StudentDirectoryPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const isMounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   const fetchStudents = useCallback(async (query?: string) => {
     setIsLoading(true);
@@ -137,6 +176,28 @@ export default function StudentDirectoryPage() {
     setIsSubmitting(false);
   };
 
+  const handleImportCsv = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const studentsToImport = parseStudentCsv(await file.text());
+    if (studentsToImport.length === 0) {
+      toast.error("No valid student rows found. Include student number and full name columns.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const res = await importStudents(studentsToImport);
+    if (res.success) {
+      toast.success(`${res.imported} student${res.imported === 1 ? "" : "s"} imported${res.skipped ? `; ${res.skipped} duplicate${res.skipped === 1 ? "" : "s"} skipped` : ""}.`);
+      fetchStudents(search);
+    } else {
+      toast.error(res.error || "Failed to import students.");
+    }
+    setIsSubmitting(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* Search & Stats */}
@@ -153,13 +214,16 @@ export default function StudentDirectoryPage() {
         </div>
 
         <div className="flex items-center justify-between sm:justify-end gap-4">
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2">
-            {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 dark:text-blue-400" />}
-            <span>
-              Total Students: <span className="font-bold text-slate-900 dark:text-white">{students.length}</span>
-            </span>
-          </div>
-
+          <label className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-2 cursor-pointer">
+            <Upload className="w-4 h-4" /> Import CSV
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleImportCsv}
+              disabled={isSubmitting}
+              className="hidden"
+            />
+          </label>
           <button
             onClick={handleOpenAddModal}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
@@ -230,8 +294,10 @@ export default function StudentDirectoryPage() {
       </div>
 
       {/* Add / Edit Student Modal */}
-      {(isAddModalOpen || editingStudent) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+      {isMounted &&
+        (isAddModalOpen || editingStudent) &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
             <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800">
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
@@ -332,12 +398,15 @@ export default function StudentDirectoryPage() {
               </div>
             </form>
           </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
       {/* Delete Confirmation Modal */}
-      {deletingStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+      {isMounted &&
+        deletingStudent &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
             <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
               <AlertCircle className="w-6 h-6 shrink-0" />
@@ -363,8 +432,9 @@ export default function StudentDirectoryPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

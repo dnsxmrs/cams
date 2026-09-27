@@ -69,6 +69,32 @@ export async function createStudent(input: StudentInput) {
   }
 }
 
+export async function importStudents(inputs: StudentInput[]) {
+  try {
+    const validated = inputs.map((input) => studentSchema.parse(input));
+    const result = await prisma.student.createMany({
+      data: validated.map((student) => ({
+        studentNumber: student.studentNumber,
+        fullName: student.fullName,
+        email: student.email || null,
+        contactInfo: student.contactInfo || null,
+      })),
+      skipDuplicates: true,
+    });
+
+    revalidatePath("/students");
+    return {
+      success: true,
+      imported: result.count,
+      skipped: validated.length - result.count,
+    };
+  } catch (error: unknown) {
+    console.error("Error importing students:", error);
+    const errorMsg = error instanceof Error ? error.message : "Failed to import students.";
+    return { success: false, error: errorMsg };
+  }
+}
+
 export async function updateStudent(id: string, input: StudentInput) {
   try {
     const validated = studentSchema.parse(input);
