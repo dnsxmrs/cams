@@ -15,22 +15,8 @@ export const auth = betterAuth({
     requireEmailVerification: true,
   },
   emailVerification: {
-    sendOnSignUp: true,
+    sendOnSignUp: false,
     autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ user, url, token }) => {
-      console.log(`[DEV VERIFICATION LINK] User: ${user.email} | URL: ${url}`);
-
-      const html = getVerificationEmailTemplate({
-        name: user.name,
-        url,
-      });
-
-      await sendEmail({
-        to: user.email,
-        subject: "Verify your email address - CAMS",
-        html,
-      });
-    },
   },
   plugins: [
     emailOTP({
