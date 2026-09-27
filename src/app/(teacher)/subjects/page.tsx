@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
+import { useState, useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -110,9 +110,15 @@ const emptySubscribe = () => () => {};
 export default function SubjectsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
-  const [subjects, setSubjects] = useState<SubjectWithCount[]>([]);
+
+  // Separate stored datasets for Active and Archived subjects
+  const [activeSubjects, setActiveSubjects] = useState<SubjectWithCount[] | null>(null);
+  const [archivedSubjects, setArchivedSubjects] = useState<SubjectWithCount[] | null>(null);
+
+  const [isLoadingActive, setIsLoadingActive] = useState<boolean>(false);
+  const [isLoadingArchived, setIsLoadingArchived] = useState<boolean>(false);
+
   const [search, setSearch] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -139,24 +145,67 @@ export default function SubjectsPage() {
     () => false
   );
 
-  const fetchSubjects = useCallback(async (query?: string, isArchivedTab: boolean = false) => {
-    setIsLoading(true);
-    const res = await getTeacherSubjects(query, isArchivedTab);
+  // Fetch Active Subjects
+  const fetchActive = useCallback(async () => {
+    setIsLoadingActive(true);
+    const res = await getTeacherSubjects(undefined, false);
     if (res.success && res.data) {
-      setSubjects(res.data as SubjectWithCount[]);
+      setActiveSubjects(res.data as SubjectWithCount[]);
     } else {
-      toast.error(res.error || "Failed to load subjects.");
+      toast.error(res.error || "Failed to load active subjects.");
     }
-    setIsLoading(false);
+    setIsLoadingActive(false);
   }, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchSubjects(search, activeTab === "archived");
-    }, 300);
+  // Fetch Archived Subjects
+  const fetchArchived = useCallback(async () => {
+    setIsLoadingArchived(true);
+    const res = await getTeacherSubjects(undefined, true);
+    if (res.success && res.data) {
+      setArchivedSubjects(res.data as SubjectWithCount[]);
+    } else {
+      toast.error(res.error || "Failed to load archived subjects.");
+    }
+    setIsLoadingArchived(false);
+  }, []);
 
-    return () => clearTimeout(timer);
-  }, [search, activeTab, fetchSubjects]);
+  // Fetch dataset on mount or when tab changes IF NOT YET FETCHED
+  useEffect(() => {
+    if (activeTab === "active") {
+      if (activeSubjects === null) {
+        fetchActive();
+      }
+    } else {
+      if (archivedSubjects === null) {
+        fetchArchived();
+      }
+    }
+  }, [activeTab, activeSubjects, archivedSubjects, fetchActive, fetchArchived]);
+
+  // Refresh datasets after data mutations (create, edit, archive, unarchive, delete)
+  const refreshData = async () => {
+    await Promise.all([fetchActive(), fetchArchived()]);
+  };
+
+  // Currently selected dataset based on activeTab
+  const currentDataset = activeTab === "active" ? (activeSubjects || []) : (archivedSubjects || []);
+
+  // Instant client-side search filtering over stored dataset
+  const filteredSubjects = useMemo(() => {
+    if (!search.trim()) return currentDataset;
+    const q = search.trim().toLowerCase();
+    return currentDataset.filter(
+      (sub) =>
+        sub.code.toLowerCase().includes(q) ||
+        sub.name.toLowerCase().includes(q) ||
+        (sub.description && sub.description.toLowerCase().includes(q))
+    );
+  }, [currentDataset, search]);
+
+  const isLoading =
+    activeTab === "active"
+      ? activeSubjects === null && isLoadingActive
+      : archivedSubjects === null && isLoadingArchived;
 
   const resetForm = () => {
     setFormData({ code: "", name: "", description: "", color: "blue" });
@@ -240,7 +289,7 @@ export default function SubjectsPage() {
         toast.success(`Subject "${formData.code.toUpperCase()}" updated successfully!`);
         setEditingSubject(null);
         resetForm();
-        await fetchSubjects(search, activeTab === "archived");
+        await refreshData();
         router.refresh();
       } else {
         setFormError(res.error || "Failed to update subject.");
@@ -253,7 +302,7 @@ export default function SubjectsPage() {
         setIsAddModalOpen(false);
         const createdId = res.data.id;
         resetForm();
-        await fetchSubjects(search, activeTab === "archived");
+        await refreshData();
         router.refresh();
         router.push(`/subjects/${createdId}/enrollments`);
       } else {
@@ -273,7 +322,7 @@ export default function SubjectsPage() {
     if (res.success) {
       toast.success(`Subject "${archivingSubject.code}" archived successfully.`);
       setArchivingSubject(null);
-      await fetchSubjects(search, activeTab === "archived");
+      await refreshData();
       router.refresh();
     } else {
       toast.error(res.error || "Failed to archive subject.");
@@ -288,7 +337,7 @@ export default function SubjectsPage() {
     const res = await unarchiveSubject(sub.id);
     if (res.success) {
       toast.success(`Subject "${sub.code}" restored to active list.`);
-      await fetchSubjects(search, activeTab === "archived");
+      await refreshData();
       router.refresh();
     } else {
       toast.error(res.error || "Failed to restore subject.");
@@ -311,7 +360,7 @@ export default function SubjectsPage() {
       toast.success(`Subject "${deletingSubject.code}" permanently deleted.`);
       setDeletingSubject(null);
       setDeleteConfirmCode("");
-      await fetchSubjects(search, activeTab === "archived");
+      await refreshData();
       router.refresh();
     } else {
       toast.error(res.error || "Failed to delete subject.");
@@ -386,14 +435,14 @@ export default function SubjectsPage() {
       </div>
 
       {/* Subject Cards Grid */}
-      {isLoading && subjects.length === 0 ? (
+      {isLoading && filteredSubjects.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-12 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
           <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400" />
           <p>Loading {activeTab === "archived" ? "archived" : "active"} subjects...</p>
         </div>
-      ) : subjects.length > 0 ? (
+      ) : filteredSubjects.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {subjects.map((sub) => {
+          {filteredSubjects.map((sub: SubjectWithCount) => {
             const theme = getColorTheme(sub.color);
             const scheduleSummary = formatSchedulesDisplay(sub.schedules, sub.description);
 
