@@ -19,6 +19,8 @@ import {
   ArrowLeft,
 } from "lucide-react";
 
+import { checkUserExists } from "@/actions/auth";
+
 function ForgotPasswordContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -59,6 +61,16 @@ function ForgotPasswordContent() {
     setErrorMsg(null);
 
     try {
+      // 1. Validate if user exists via Server Action
+      const userCheck = await checkUserExists(email);
+      if (!userCheck.exists) {
+        const msg = userCheck.error || "No registered account found with this email address.";
+        setErrorMsg(msg);
+        toast.error(msg);
+        return;
+      }
+
+      // 2. User exists: send verification OTP
       const { error } = await authClient.emailOtp.sendVerificationOtp({
         email: email.trim().toLowerCase(),
         type: "forget-password",
@@ -134,6 +146,12 @@ function ForgotPasswordContent() {
     setErrorMsg(null);
 
     try {
+      const userCheck = await checkUserExists(email);
+      if (!userCheck.exists) {
+        toast.error(userCheck.error || "No registered account found with this email address.");
+        return;
+      }
+
       const { error } = await authClient.emailOtp.sendVerificationOtp({
         email: email.trim().toLowerCase(),
         type: "forget-password",
@@ -207,7 +225,7 @@ function ForgotPasswordContent() {
             ) : (
               <>
                 <span>Send Reset Code</span>
-                <ArrowRight className="w-4 h-4" />
+                {/* <ArrowRight className="w-4 h-4" /> */}
               </>
             )}
           </button>
@@ -221,13 +239,13 @@ function ForgotPasswordContent() {
               <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
                 Email Address
               </label>
-              <button
+              {/* <button
                 type="button"
                 onClick={() => setStep(1)}
                 className="text-[11px] text-blue-600 hover:underline font-semibold cursor-pointer"
               >
                 Change Email
-              </button>
+              </button> */}
             </div>
             <input
               type="email"
@@ -387,7 +405,7 @@ function ForgotPasswordContent() {
           href="/login"
           className="inline-flex items-center gap-1.5 text-slate-600 hover:text-blue-600 font-bold transition-colors duration-200"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          {/* <ArrowLeft className="w-3.5 h-3.5" /> */}
           <span>Back to Sign In</span>
         </Link>
       </div>
