@@ -15,7 +15,6 @@ import {
   X,
   AlertCircle,
   Plus,
-  Check,
   Clock,
   Mail,
   Phone,
@@ -189,59 +188,71 @@ export default function SubjectEnrollmentsPage({
       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-3">
         {/* Row 1: Subject Name - Subject Code | Add Student Button */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-              {subject?.name || "Subject Roster"}
-            </h1>
-            <span className="text-xl font-bold text-slate-300 dark:text-slate-600 hidden sm:inline">—</span>
-            <span className="px-3 py-1 rounded-lg text-xs font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-              {subject?.code || "CODE"}
-            </span>
+          {isLoading ? (
+            <div className="flex items-center gap-2.5">
+              <div className="h-7 w-48 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
+              <div className="h-6 w-20 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                {subject?.name || "Subject Roster"}
+              </h1>
+              {subject?.code && (
+                <span className="px-3 py-1 rounded-lg text-xs font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  {subject.code}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Row 2: Schedule - Student Enrolled */}
+        {isLoading ? (
+          <div className="flex items-center gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="h-4 w-44 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+            <div className="h-4 w-28 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+              <span>{formatSchedulesDisplay(subject?.schedules, subject?.description)}</span>
+            </div>
+            <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
+            <div className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
+              <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>{subject?.enrollments.length || 0} Students Enrolled</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Roster Search and Results */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs overflow-hidden">
+        <div className="p-4 border-b border-slate-200/90 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-md">
+            <input
+              type="text"
+              placeholder="Search enrolled students..."
+              value={rosterSearch}
+              onChange={(e) => setRosterSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none transition-all"
+            />
+            <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
           </div>
 
           <button
             onClick={() => setIsEnrollModalOpen(true)}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer self-start sm:self-auto"
+            disabled={isLoading}
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer self-start sm:self-auto"
           >
             <UserPlus className="w-4 h-4" /> Enroll Students
           </button>
         </div>
 
-        {/* Row 2: Schedule - Student Enrolled */}
-        <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
-            <span>{formatSchedulesDisplay(subject?.schedules, subject?.description)}</span>
-          </div>
-          <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
-          <div className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
-            <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span>{subject?.enrollments.length || 0} Students Enrolled</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Roster Search Bar */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <input
-            type="text"
-            placeholder="Search enrolled students..."
-            value={rosterSearch}
-            onChange={(e) => setRosterSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none transition-all"
-          />
-          <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
-        </div>
-
-        <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-          Showing <span className="font-bold text-slate-900 dark:text-white">{filteredEnrollments?.length || 0}</span> of{" "}
-          {subject?.enrollments.length || 0} enrolled
-        </div>
-      </div>
-
-      {/* Roster Display Section */}
-      <div className="space-y-4">
+        {/* Roster Display Section */}
+        <div className="space-y-4 p-4">
         {isLoading ? (
           <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-12 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
             <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400" />
@@ -250,7 +261,7 @@ export default function SubjectEnrollmentsPage({
         ) : filteredEnrollments && filteredEnrollments.length > 0 ? (
           <>
             {/* DESKTOP TABLE VIEW (hidden on mobile, visible on md+) */}
-            <div className="hidden md:block bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
+            <div className="hidden md:block overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[600px]">
                   <thead>
@@ -349,7 +360,7 @@ export default function SubjectEnrollmentsPage({
             </div>
           </>
         ) : (
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-12 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+          <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
             <BookOpen className="w-8 h-8 text-slate-300 dark:text-slate-600" />
             <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">No students enrolled yet</p>
             <p>
@@ -367,6 +378,7 @@ export default function SubjectEnrollmentsPage({
             )}
           </div>
         )}
+      </div>
       </div>
 
       {/* ENROLL STUDENTS MODAL (Uses React Portal to span entire screen) */}
@@ -445,8 +457,8 @@ export default function SubjectEnrollmentsPage({
                   ))
                 ) : (
                   <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-1">
-                    <Check className="w-6 h-6 text-emerald-500" />
-                    <p className="font-bold text-slate-700 dark:text-slate-200">No un-enrolled students found</p>
+                    {/* <Check className="w-6 h-6 text-emerald-500" /> */}
+                    <p className="font-bold text-slate-700 dark:text-slate-200">No students found</p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       {availableSearch
                         ? "No matching student in directory."
@@ -454,7 +466,7 @@ export default function SubjectEnrollmentsPage({
                     </p>
                     <Link
                       href="/students"
-                      className="mt-2 text-xs text-blue-600 dark:text-blue-400 font-bold hover:underline"
+                      className="mt-5 text-xs text-blue-600 dark:text-blue-400 font-bold hover:underline"
                     >
                       + Add new student to directory
                     </Link>
