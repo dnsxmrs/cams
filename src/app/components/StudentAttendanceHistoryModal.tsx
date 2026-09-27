@@ -319,7 +319,7 @@ export default function StudentAttendanceHistoryModal({
                     <BookOpen className="w-6 h-6 mx-auto mb-1.5 text-slate-300 dark:text-slate-600" />
                     <p className="font-bold text-slate-700 dark:text-slate-200">No attendance records found</p>
                     <p className="text-[11px] mt-0.5">
-                      {searchQuery || selectedSubjectId !== "ALL" || selectedStatus !== "ALL"
+                      {selectedSubjectId !== "ALL" || selectedStatus !== "ALL"
                         ? "No attendance log matches the selected filters."
                         : "No attendance sessions recorded yet for this student."}
                     </p>
