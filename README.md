@@ -25,6 +25,7 @@ A full-stack, mobile-responsive web application designed for teachers to manage 
 **Class Attendance Management System (CAMS)** solves administrative inefficiencies by providing a centralized platform for educators. Built on Next.js 16 and PostgreSQL, CAMS isolates teacher data while enabling global student management, multi-subject enrollments, atomic batch attendance marking, and real-time attendance performance analytics.
 
 ### Core Goals
+
 - **Data Isolation**: Ensures teachers only access and manage their own subjects and attendance records.
 - **Global Directory**: Separates student identity from subject enrollment to prevent duplication.
 - **Data Integrity**: Enforces strict database-level unique constraints to prevent duplicate enrollments or attendance records.
@@ -107,6 +108,7 @@ graph TD
 ```
 
 ### Data Isolation & Access Flow
+
 1. **Request Inspection**: Every Server Action calls `requireTeacherAuth()` to extract the authenticated user session.
 2. **Context Filtering**: Data queries explicitly filter records using `where: { teacherId: user.id }`.
 3. **Database Execution**: Prisma communicates with PostgreSQL via pooled connections using standard transactional locks.
@@ -207,11 +209,13 @@ erDiagram
 ## 💻 Installation Steps
 
 ### Prerequisites
+
 - **Node.js**: v20.x or higher
 - **npm**: v10.x or higher
 - **PostgreSQL Database**: Accessible database URI (e.g., Supabase, Neon, or local PostgreSQL)
 
 ### 1. Clone & Install Dependencies
+
 ```bash
 git clone <repository-url>
 cd cams
@@ -219,6 +223,7 @@ npm install
 ```
 
 ### 2. Configure Environment Variables
+
 Create a `.env` file in the project root directory (refer to `.env.example` if available):
 
 ```env
@@ -241,28 +246,37 @@ NODE_ENV="development"
 ## 🗄️ Database Setup
 
 ### 1. Generate Prisma Client
+
 Generate the type-safe Prisma client matching your local environment:
+
 ```bash
 npx prisma generate
 ```
 
 ### 2. Push Schema to Database
+
 Sync the Prisma schema directly to your PostgreSQL database:
+
 ```bash
 npx prisma db push
 ```
 
 ### 3. Seed Database (Optional)
+
 Populate the database with demo teachers, subjects, students, and attendance records:
+
 ```bash
 npm run db:seed
 ```
 
 ### 4. Start Development Server
+
 Launch the Next.js development server:
+
 ```bash
 npm run dev
 ```
+
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
@@ -309,22 +323,27 @@ cams/
 During the technical presentation, the following design choices address key architectural questions:
 
 ### 1. Global Student Directory vs. Subject-Bound Students
+
 - **Question**: *Why separate students from subjects instead of storing students inside a subject table?*
 - **Rationale**: Students exist independently in an academic institution. A single student enrolls in multiple subjects across terms. Storing student details directly inside a subject would cause severe data redundancy, inconsistency during updates (e.g. changing an email), and inability to track a student's overall cross-subject attendance performance.
 
 ### 2. Multi-Subject Enrollment Handling
+
 - **Question**: *How does your design support a student enrolling in multiple subjects?*
 - **Rationale**: We modeled a clean Many-to-Many relationship using an `Enrollment` join table. The `@@unique([subjectId, studentId])` constraint prevents duplicate enrollments while allowing flexibility for a student to join an unlimited number of subjects.
 
 ### 3. Historical Attendance Data Retention
+
 - **Question**: *If a student drops a subject after attending several classes, should their previous attendance records be deleted?*
 - **Rationale**: No. Attendance records serve as official academic logs. When a student is unenrolled, their `Enrollment` record is removed, but past `AttendanceRecord` entries remain intact in the database to maintain historical integrity and accurately reflect past classroom statistics.
 
 ### 4. Teacher Security & Data Isolation
+
 - **Question**: *How does the system prevent a teacher from modifying another teacher's subject via API tampering?*
 - **Rationale**: Server Actions do not trust incoming IDs from the client. Every action retrieves the authenticated user's session ID (`session.user.id`) server-side using `requireTeacherAuth()` and enforces strict `where: { teacherId: user.id }` checks. Manipulating request payloads results in an instant 404 or Unauthorized response.
 
 ### 5. Duplicate Attendance Marking Prevention
+
 - **Question**: *How do you prevent marking the same student multiple times in one session?*
 - **Rationale**: We enforced a database composite unique index `@@unique([sessionId, studentId])` on `AttendanceRecord`. Furthermore, batch session recording uses a Prisma `$transaction` to guarantee that all attendance entries are created atomically.
 
@@ -347,7 +366,7 @@ If CAMS expands to thousands of teachers, tens of thousands of students, and mil
 2. **Caching Layer (Redis)**:
    - Cache subject rosters and teacher dashboard summary statistics in Redis to eliminate DB round-trips on frequently accessed pages.
 3. **Pagination & Infinite Scrolling**:
-   - Implement cursor-based pagination on `/students`, `/subjects`, and `/sessions` pages to handle large datasets seamlessly.
+   - Implement cursor-based pagination on `/students`, `/subjects`, and `/history` pages to handle large datasets seamlessly.
 4. **Asynchronous Background Processing**:
    - Offload large batch attendance insertions and report recalculations to a background queue (e.g. BullMQ / Redis worker) to prevent request blocking.
 

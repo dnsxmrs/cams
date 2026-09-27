@@ -55,7 +55,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col font-sans bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
-        <Toaster position="top-right" toastOptions={{ duration: 1000 }} />
+        <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
         {children}
       </body>
     </html>
