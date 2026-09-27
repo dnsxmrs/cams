@@ -486,24 +486,24 @@ export default function SubjectsPage() {
                       {/* Export CSV Button */}
                       <button
                         onClick={() => exportSubjectAttendanceCSV(sub.id, sub.code)}
-                        className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
+                        className="p-1.5 rounded-xl text-emerald-600 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200/70 dark:border-emerald-800/60 transition-all cursor-pointer shadow-2xs"
                         title="Export Attendance to CSV/Excel"
                       >
-                        <FileSpreadsheet className="w-4 h-4" />
+                        <FileSpreadsheet className="w-3.5 h-3.5" />
                       </button>
 
                       {activeTab === "active" ? (
                         <>
                           <button
                             onClick={() => handleOpenEditModal(sub)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-xl text-blue-600 dark:text-blue-400 bg-blue-50/70 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200/70 dark:border-blue-800/60 transition-all cursor-pointer shadow-2xs"
                             title="Edit Subject"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => setArchivingSubject(sub)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-xl text-amber-600 dark:text-amber-400 bg-amber-50/70 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200/70 dark:border-amber-800/60 transition-all cursor-pointer shadow-2xs"
                             title="Archive Subject (Preserve Data)"
                           >
                             <Archive className="w-3.5 h-3.5" />
@@ -513,17 +513,17 @@ export default function SubjectsPage() {
                         <>
                           <button
                             onClick={() => handleUnarchiveSubject(sub)}
-                            className="p-1.5 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-xl text-emerald-600 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200/70 dark:border-emerald-800/60 transition-all cursor-pointer shadow-2xs"
                             title="Restore Subject to Active"
                           >
-                            <RotateCcw className="w-4 h-4" />
+                            <RotateCcw className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => {
                               setDeleteConfirmCode("");
                               setDeletingSubject(sub);
                             }}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-xl text-red-600 dark:text-red-400 bg-red-50/70 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 border border-red-200/70 dark:border-red-800/60 transition-all cursor-pointer shadow-2xs"
                             title="Permanently Delete Subject"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
