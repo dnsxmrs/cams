@@ -70,7 +70,7 @@ export const SUBJECT_COLORS = [
 
 const DAYS_LIST: Array<ScheduleSlot["day"]> = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
-function getColorTheme(colorId?: string | null) {
+export function getColorTheme(colorId?: string | null) {
   return SUBJECT_COLORS.find((c) => c.id === colorId) || SUBJECT_COLORS[0];
 }
 
