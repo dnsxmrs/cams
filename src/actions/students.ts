@@ -31,7 +31,9 @@ export async function getStudents(searchQuery?: string) {
         ? {
             OR: [
               { studentNumber: { contains: query, mode: "insensitive" } },
-              { fullName: { contains: query, mode: "insensitive" } },
+              { lastName: { contains: query, mode: "insensitive" } },
+              { firstName: { contains: query, mode: "insensitive" } },
+              { middleInitial: { contains: query, mode: "insensitive" } },
               { email: { contains: query, mode: "insensitive" } },
             ],
           }
@@ -41,9 +43,11 @@ export async function getStudents(searchQuery?: string) {
           select: { enrollments: true },
         },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: [
+        { lastName: "asc" },
+        { firstName: "asc" },
+        { middleInitial: "asc" },
+      ],
     });
 
     return { success: true, data: students };
@@ -74,7 +78,9 @@ export async function createStudent(input: StudentInput) {
     const student = await prisma.student.create({
       data: {
         studentNumber: validated.studentNumber,
-        fullName: validated.fullName,
+        lastName: validated.lastName,
+        firstName: validated.firstName,
+        middleInitial: validated.middleInitial || null,
         email: validated.email || null,
         contactInfo: validated.contactInfo || null,
       },
@@ -116,7 +122,9 @@ export async function importStudents(inputs: StudentInput[]) {
     const result = await prisma.student.createMany({
       data: uniqueStudents.map((student) => ({
         studentNumber: student.studentNumber,
-        fullName: student.fullName,
+        lastName: student.lastName,
+        firstName: student.firstName,
+        middleInitial: student.middleInitial || null,
         email: student.email || null,
         contactInfo: student.contactInfo || null,
       })),
@@ -162,7 +170,9 @@ export async function updateStudent(id: string, input: StudentInput) {
       where: { id },
       data: {
         studentNumber: validated.studentNumber,
-        fullName: validated.fullName,
+        lastName: validated.lastName,
+        firstName: validated.firstName,
+        middleInitial: validated.middleInitial || null,
         email: validated.email || null,
         contactInfo: validated.contactInfo || null,
       },

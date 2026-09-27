@@ -47,15 +47,18 @@ export async function getAvailableStudentsForSubject(subjectId: string, searchQu
           ? {
               OR: [
                 { studentNumber: { contains: query, mode: "insensitive" } },
-                { fullName: { contains: query, mode: "insensitive" } },
+                { lastName: { contains: query, mode: "insensitive" } },
+                { firstName: { contains: query, mode: "insensitive" } },
+                { middleInitial: { contains: query, mode: "insensitive" } },
                 { email: { contains: query, mode: "insensitive" } },
               ],
             }
           : {}),
       },
-      orderBy: {
-        fullName: "asc",
-      },
+      orderBy: [
+        { lastName: "asc" },
+        { firstName: "asc" },
+      ],
     });
 
     return { success: true, data: students };

@@ -261,11 +261,10 @@ export async function getSubjectAttendanceExportData(subjectId: string) {
           include: {
             student: true,
           },
-          orderBy: {
-            student: {
-              fullName: "asc",
-            },
-          },
+          orderBy: [
+            { student: { lastName: "asc" } },
+            { student: { firstName: "asc" } },
+          ],
         },
         sessions: {
           include: {

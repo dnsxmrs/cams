@@ -15,11 +15,10 @@ export async function getSubjectForSession(subjectId: string) {
           include: {
             student: true,
           },
-          orderBy: {
-            student: {
-              fullName: "asc",
-            },
-          },
+          orderBy: [
+            { student: { lastName: "asc" } },
+            { student: { firstName: "asc" } },
+          ],
         },
       },
     });
@@ -112,11 +111,10 @@ export async function getSessionById(sessionId: string) {
           include: {
             student: true,
           },
-          orderBy: {
-            student: {
-              fullName: "asc",
-            },
-          },
+          orderBy: [
+            { student: { lastName: "asc" } },
+            { student: { firstName: "asc" } },
+          ],
         },
       },
     });
