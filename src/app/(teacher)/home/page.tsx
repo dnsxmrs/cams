@@ -306,7 +306,7 @@ export default function TeacherHome() {
                   </Link>
 
                   <Link
-                    href={`/subjects/${subject.id}/sessions/new`}
+                    href={`/subjects/${subject.id}/attendance`}
                     className="px-2.5 py-1 text-[11px] sm:text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs transition-all active:scale-95 flex items-center gap-1"
                   >
                     <Zap className="w-3 h-3" /> Take Attendance

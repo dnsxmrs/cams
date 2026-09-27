@@ -141,7 +141,7 @@ export async function createAttendanceSessionAndRecords(
       )
     );
 
-    revalidatePath(`/subjects/${subjectId}/sessions/new`);
+    revalidatePath(`/subjects/${subjectId}/attendance`);
     revalidatePath(`/subjects`);
     revalidatePath(`/sessions`);
     revalidatePath(`/home`);

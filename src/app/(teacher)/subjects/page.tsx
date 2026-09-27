@@ -261,7 +261,7 @@ export default function SubjectsPage() {
                 </Link>
 
                 <Link
-                  href={`/subjects/${sub.id}/sessions/new`}
+                  href={`/subjects/${sub.id}/attendance`}
                   className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl transition-all shadow-2xs shadow-blue-600/20 flex items-center gap-1.5"
                 >
                   <Zap className="w-3.5 h-3.5" />
