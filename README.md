@@ -123,6 +123,7 @@ graph TD
 erDiagram
     User ||--o{ Session : "has active"
     User ||--o{ Account : "authenticates via"
+    User ||--o{ TwoFactor : "has 2FA settings"
     User ||--o{ Subject : "owns & teaches"
     
     Student ||--o{ Enrollment : "enrolled in"
@@ -138,6 +139,7 @@ erDiagram
         string email UK
         boolean emailVerified
         string image
+        boolean twoFactorEnabled
         datetime createdAt
         datetime updatedAt
     }
@@ -145,7 +147,9 @@ erDiagram
     Student {
         string id PK
         string studentNumber UK
-        string fullName
+        string lastName
+        string firstName
+        string middleInitial
         string email
         string contactInfo
         datetime createdAt
@@ -157,6 +161,9 @@ erDiagram
         string code
         string name
         string description
+        string schedules "JSON string"
+        string color
+        boolean isArchived
         string teacherId FK
         datetime createdAt
         datetime updatedAt
@@ -354,28 +361,38 @@ During the technical presentation, the following design choices address key arch
 - **Question**: *How do you prevent marking the same student multiple times in one session?*
 - **Rationale**: We enforced a database composite unique index `@@unique([sessionId, studentId])` on `AttendanceRecord`. Furthermore, batch session recording uses a Prisma `$transaction` to guarantee that all attendance entries are created atomically.
 
+### 6. Transactional Email & OTP Security
+
+- **Question**: *How is identity verification and account recovery secured?*
+- **Rationale**: Integrated Better Auth with **Nodemailer SMTP** (`src/lib/email.ts`) to deliver time-sensitive 6-digit OTP verification codes directly to the teacher's registered email address for account signup verification and password resets.
+
+### 7. Client-Side UTF-8 CSV Report Export
+
+- **Question**: *How are attendance reports exported without overloading the server?*
+- **Rationale**: CSV report generation (`src/lib/exportAttendance.ts`) constructs matrix datasets on-the-fly and triggers UTF-8 BOM encoded CSV downloads directly in the browser, eliminating server rendering overhead and ensuring full Microsoft Excel compatibility.
+
 ---
 
 ## ⚠️ Known Limitations
 
-1. **Manual Attendance Entry**: Attendance is logged manually by teachers; automated self-service methods like student QR code scanning or RFID checks are currently non-functional mockups.
-2. **Single Portal Role**: The application is optimized for Teacher accounts. Student or Administrator-specific dashboards are not included in the current scope.
-3. **Export Formats**: Analytics and history summaries are rendered dynamically on the web UI; exporting report data to CSV/PDF files is not yet implemented.
+1. **Manual Attendance Roll Call**: Attendance is logged manually by teachers; hardware-assisted self-service check-in (e.g., student QR code scanning or RFID card readers) is not currently implemented.
+2. **Single Portal Role Scope**: The application is optimized specifically for Teacher management accounts. Dedicated Student view portals or System-Admin dashboards are outside the current MVP scope.
+3. **PDF Document Compilation**: Reports are dynamically rendered on the web UI and downloadable as UTF-8 CSV files; native PDF binary compilation is not yet integrated.
 
 ---
 
 ## ⚡ Future Scalability Enhancements
 
-If CAMS expands to thousands of teachers, tens of thousands of students, and millions of attendance records, the following improvements should be implemented:
+If CAMS expands to thousands of teachers, tens of thousands of students, and millions of attendance records, the following architectural upgrades should be implemented:
 
 1. **Database Indexing**:
-   - Add explicit B-Tree indexes on `AttendanceRecord(studentId, status)` and `AttendanceSession(subjectId, sessionDate)` to accelerate reporting queries.
+   - Add explicit B-Tree composite indexes on `AttendanceRecord(studentId, status)` and `AttendanceSession(subjectId, sessionDate)` to optimize reporting aggregation queries.
 2. **Caching Layer (Redis)**:
-   - Cache subject rosters and teacher dashboard summary statistics in Redis to eliminate DB round-trips on frequently accessed pages.
-3. **Pagination & Infinite Scrolling**:
-   - Implement cursor-based pagination on `/students`, `/subjects`, and `/history` pages to handle large datasets seamlessly.
-4. **Asynchronous Background Processing**:
-   - Offload large batch attendance insertions and report recalculations to a background queue (e.g. BullMQ / Redis worker) to prevent request blocking.
+   - Cache subject rosters, teacher dashboard statistics, and student search indices in Redis to minimize DB round-trips during peak morning roll-call hours.
+3. **Asynchronous Background Processing**:
+   - Offload transactional email delivery and heavy batch analytics recalculations to a background worker queue (e.g., BullMQ with Redis).
+4. **Dynamic QR Code & Geofenced Attendance**:
+   - Implement dynamic, time-decaying QR codes on teacher screens allowing students to scan and check in with GPS/Wi-Fi geofencing validation.
 
 ---
 
