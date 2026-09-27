@@ -1,4 +1,5 @@
 import { getSubjectAttendanceExportData } from "@/actions/subjects";
+import { formatStudentName } from "@/lib/student";
 import { toast } from "react-hot-toast";
 
 function escapeCSV(val: string | number | null | undefined): string {
@@ -92,7 +93,7 @@ export async function exportSubjectAttendanceCSV(subjectId: string, subjectCode:
 
       const studentRow = [
         student.studentNumber,
-        student.fullName,
+        formatStudentName(student),
         student.email || "N/A",
         ...sessionStatuses,
         present,

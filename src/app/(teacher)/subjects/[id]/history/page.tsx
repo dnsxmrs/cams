@@ -17,7 +17,9 @@ import Pagination from "@/app/components/Pagination";
 interface Student {
   id: string;
   studentNumber: string;
-  fullName: string;
+  lastName: string;
+  firstName: string;
+  middleInitial: string | null;
 }
 
 interface RecordItem {

@@ -27,12 +27,15 @@ import {
   unenrollStudent,
 } from "@/actions/enrollments";
 import { formatSchedulesDisplay } from "@/app/(teacher)/subjects/page";
+import { formatStudentName } from "@/lib/student";
 import Pagination from "@/app/components/Pagination";
 
 interface Student {
   id: string;
   studentNumber: string;
-  fullName: string;
+  lastName: string;
+  firstName: string;
+  middleInitial: string | null;
   email: string | null;
   contactInfo: string | null;
 }
@@ -141,7 +144,7 @@ export default function SubjectEnrollmentsPage({
 
     const res = await enrollStudent(subjectId, st.id);
     if (res.success) {
-      toast.success(`${st.fullName} enrolled in ${subject?.code}!`);
+      toast.success(`${formatStudentName(st)} enrolled in ${subject?.code}!`);
       // Update UI state
       setAvailableStudents((prev) => prev.filter((s) => s.id !== st.id));
       fetchRoster();
@@ -158,7 +161,7 @@ export default function SubjectEnrollmentsPage({
 
     const res = await unenrollStudent(subjectId, unenrollingStudent.id);
     if (res.success) {
-      toast.success(`${unenrollingStudent.fullName} removed from roster.`);
+      toast.success(`${formatStudentName(unenrollingStudent)} removed from roster.`);
       setUnenrollingStudent(null);
       fetchRoster();
     } else {
@@ -170,7 +173,7 @@ export default function SubjectEnrollmentsPage({
 
   const filteredEnrollments = subject?.enrollments.filter(
     (item) =>
-      item.student.fullName.toLowerCase().includes(rosterSearch.toLowerCase()) ||
+      formatStudentName(item.student).toLowerCase().includes(rosterSearch.toLowerCase()) ||
       item.student.studentNumber.toLowerCase().includes(rosterSearch.toLowerCase()) ||
       (item.student.email && item.student.email.toLowerCase().includes(rosterSearch.toLowerCase()))
   );
@@ -292,7 +295,7 @@ export default function SubjectEnrollmentsPage({
                           {item.student.studentNumber}
                         </td>
                         <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
-                          {item.student.fullName}
+                          {formatStudentName(item.student)}
                         </td>
                         {/* <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{item.student.email || "—"}</td> */}
                         <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">{item.student.contactInfo || "—"}</td>
@@ -331,7 +334,7 @@ export default function SubjectEnrollmentsPage({
                         {item.student.studentNumber}
                       </span>
                       <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1.5">
-                        {item.student.fullName}
+                        {formatStudentName(item.student)}
                       </h3>
                     </div>
 
@@ -455,7 +458,7 @@ export default function SubjectEnrollmentsPage({
                           <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
                             {st.studentNumber}
                           </span>
-                          <span className="font-bold text-slate-900 dark:text-white">{st.fullName}</span>
+                          <span className="font-bold text-slate-900 dark:text-white">{formatStudentName(st)}</span>
                         </div>
                       </div>
 
@@ -516,7 +519,7 @@ export default function SubjectEnrollmentsPage({
                 <h2 className="text-base font-bold text-slate-900 dark:text-white">Remove from Roster?</h2>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-300">
-                Are you sure you want to remove <strong className="text-slate-900 dark:text-white">{unenrollingStudent.fullName}</strong> ({unenrollingStudent.studentNumber}) from <strong className="text-slate-900 dark:text-white">{subject?.code}</strong>?
+                Are you sure you want to remove <strong className="text-slate-900 dark:text-white">{formatStudentName(unenrollingStudent)}</strong> ({unenrollingStudent.studentNumber}) from <strong className="text-slate-900 dark:text-white">{subject?.code}</strong>?
               </p>
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button

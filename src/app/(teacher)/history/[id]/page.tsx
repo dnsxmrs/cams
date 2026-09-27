@@ -20,10 +20,14 @@ import {
 } from "@/actions/attendance";
 import Pagination from "@/app/components/Pagination";
 
+import { formatStudentName } from "@/lib/student";
+
 interface Student {
   id: string;
   studentNumber: string;
-  fullName: string;
+  lastName: string;
+  firstName: string;
+  middleInitial: string | null;
   email: string | null;
 }
 
@@ -86,12 +90,12 @@ export default function SessionDetailPage({
 
   const filteredRecords = sessionRecord?.records.filter(
     (r) =>
-      r.student.fullName.toLowerCase().includes(search.toLowerCase()) ||
+      formatStudentName(r.student).toLowerCase().includes(search.toLowerCase()) ||
       r.student.studentNumber.toLowerCase().includes(search.toLowerCase()) ||
       (r.student.email && r.student.email.toLowerCase().includes(search.toLowerCase()))
   );
   const sortedRecords = useMemo(
-    () => [...(filteredRecords || [])].sort((a, b) => a.student.fullName.localeCompare(b.student.fullName)),
+    () => [...(filteredRecords || [])].sort((a, b) => formatStudentName(a.student).localeCompare(formatStudentName(b.student))),
     [filteredRecords]
   );
   const visibleRecords = sortedRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -208,12 +212,12 @@ export default function SessionDetailPage({
               >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold flex items-center justify-center text-xs shrink-0 border border-slate-200 dark:border-slate-700">
-                    {st.fullName.slice(0, 2).toUpperCase()}
+                    {st.lastName.slice(0, 1).toUpperCase()}{st.firstName.slice(0, 1).toUpperCase()}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                        {st.fullName}
+                        {formatStudentName(st)}
                       </h3>
                       <span className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400">
                         {st.studentNumber}

@@ -15,10 +15,14 @@ import {
 import { getAttendanceReports } from "@/actions/attendance";
 import Pagination from "@/app/components/Pagination";
 
+import { formatStudentName } from "@/lib/student";
+
 interface StudentReport {
   id: string;
   studentNumber: string;
-  fullName: string;
+  lastName: string;
+  firstName: string;
+  middleInitial: string | null;
   email: string | null;
   totalRecorded: number;
   presentCount: number;
@@ -53,7 +57,9 @@ type RawSubject = {
 type RawStudent = {
   id: string;
   studentNumber: string;
-  fullName: string;
+  lastName: string;
+  firstName: string;
+  middleInitial: string | null;
   email: string | null;
   attendances: { status: string }[];
 };
@@ -125,7 +131,9 @@ export default function AttendanceReportsPage() {
           return {
             id: st.id,
             studentNumber: st.studentNumber,
-            fullName: st.fullName,
+            lastName: st.lastName,
+            firstName: st.firstName,
+            middleInitial: st.middleInitial,
             email: st.email,
             totalRecorded,
             presentCount,
@@ -158,7 +166,7 @@ export default function AttendanceReportsPage() {
 
   const filteredStudents = studentReports.filter(
     (st) =>
-      st.fullName.toLowerCase().includes(searchStudent.toLowerCase()) ||
+      formatStudentName(st).toLowerCase().includes(searchStudent.toLowerCase()) ||
       st.studentNumber.toLowerCase().includes(searchStudent.toLowerCase()) ||
       (st.email && st.email.toLowerCase().includes(searchStudent.toLowerCase()))
   );
@@ -353,7 +361,7 @@ export default function AttendanceReportsPage() {
                       {st.studentNumber}
                     </td>
                     <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
-                      {st.fullName}
+                      {formatStudentName(st)}
                     </td>
                     <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-medium">
                       {st.totalRecorded} Sessions

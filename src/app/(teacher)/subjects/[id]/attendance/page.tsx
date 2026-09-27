@@ -28,12 +28,16 @@ import {
 } from "@/actions/attendance";
 import { formatSchedulesDisplay, getColorTheme } from "@/app/(teacher)/subjects/page";
 
+import { formatStudentName } from "@/lib/student";
+
 type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
 
 interface Student {
   id: string;
   studentNumber: string;
-  fullName: string;
+  lastName: string;
+  firstName: string;
+  middleInitial: string | null;
   email: string | null;
   contactInfo: string | null;
 }
@@ -168,13 +172,13 @@ export default function TakeAttendancePage({
   // Filter enrolled students
   const filteredEnrollments = subject?.enrollments.filter(
     (e) =>
-      e.student.fullName.toLowerCase().includes(search.toLowerCase()) ||
+      formatStudentName(e.student).toLowerCase().includes(search.toLowerCase()) ||
       e.student.studentNumber.toLowerCase().includes(search.toLowerCase()) ||
       (e.student.email && e.student.email.toLowerCase().includes(search.toLowerCase()))
   );
 
   const sortedEnrollments = useMemo(
-    () => [...(filteredEnrollments || [])].sort((a, b) => a.student.fullName.localeCompare(b.student.fullName)),
+    () => [...(filteredEnrollments || [])].sort((a, b) => formatStudentName(a.student).localeCompare(formatStudentName(b.student))),
     [filteredEnrollments]
   );
   const totalPages = Math.max(1, Math.ceil(sortedEnrollments.length / pageSize));
@@ -367,12 +371,12 @@ export default function TakeAttendancePage({
                 {/* Student Info */}
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold flex items-center justify-center text-xs shrink-0 border border-slate-200 dark:border-slate-700">
-                    {st.fullName.slice(0, 2).toUpperCase()}
+                    {st.lastName.slice(0, 1).toUpperCase()}{st.firstName.slice(0, 1).toUpperCase()}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                        {st.fullName}
+                        {formatStudentName(st)}
                       </h3>
                       <span className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400">
                         {st.studentNumber}
