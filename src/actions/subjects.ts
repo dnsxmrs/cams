@@ -5,7 +5,7 @@ import { getSession } from "@/lib/auth";
 import { subjectSchema, SubjectInput } from "@/lib/validations";
 import { revalidatePath } from "next/cache";
 
-export async function getTeacherSubjects(searchQuery?: string) {
+export async function getTeacherSubjects(searchQuery?: string, isArchived: boolean = false) {
   try {
     const session = await getSession();
     
@@ -15,6 +15,7 @@ export async function getTeacherSubjects(searchQuery?: string) {
 
     const subjects = await prisma.subject.findMany({
       where: {
+        isArchived,
         ...(teacherId ? { teacherId } : {}),
         ...(query
           ? {
@@ -155,6 +156,66 @@ export async function updateSubject(id: string, input: SubjectInput) {
   }
 }
 
+export async function archiveSubject(id: string) {
+  try {
+    const session = await getSession();
+    if (!session || !session.user) {
+      return { success: false, error: "You must be logged in to archive a subject." };
+    }
+
+    const existing = await prisma.subject.findFirst({
+      where: { id, teacherId: session.user.id },
+    });
+
+    if (!existing) {
+      return { success: false, error: "Subject not found or unauthorized." };
+    }
+
+    const updated = await prisma.subject.update({
+      where: { id },
+      data: { isArchived: true },
+    });
+
+    revalidatePath("/subjects");
+    revalidatePath("/home");
+    return { success: true, data: updated };
+  } catch (error: unknown) {
+    console.error("Error archiving subject:", error);
+    const msg = error instanceof Error ? error.message : "Failed to archive subject.";
+    return { success: false, error: msg };
+  }
+}
+
+export async function unarchiveSubject(id: string) {
+  try {
+    const session = await getSession();
+    if (!session || !session.user) {
+      return { success: false, error: "You must be logged in to unarchive a subject." };
+    }
+
+    const existing = await prisma.subject.findFirst({
+      where: { id, teacherId: session.user.id },
+    });
+
+    if (!existing) {
+      return { success: false, error: "Subject not found or unauthorized." };
+    }
+
+    const updated = await prisma.subject.update({
+      where: { id },
+      data: { isArchived: false },
+    });
+
+    revalidatePath("/subjects");
+    revalidatePath("/home");
+    return { success: true, data: updated };
+  } catch (error: unknown) {
+    console.error("Error unarchiving subject:", error);
+    const msg = error instanceof Error ? error.message : "Failed to unarchive subject.";
+    return { success: false, error: msg };
+  }
+}
+
 export async function deleteSubject(id: string) {
   try {
     const session = await getSession();
@@ -182,5 +243,48 @@ export async function deleteSubject(id: string) {
     console.error("Error deleting subject:", error);
     const msg = error instanceof Error ? error.message : "Failed to delete subject.";
     return { success: false, error: msg };
+  }
+}
+
+export async function getSubjectAttendanceExportData(subjectId: string) {
+  try {
+    const session = await getSession();
+
+    // Find subject matching ID (and teacherId if session exists)
+    const subject = await prisma.subject.findFirst({
+      where: {
+        id: subjectId,
+        ...(session?.user?.id ? { teacherId: session.user.id } : {}),
+      },
+      include: {
+        enrollments: {
+          include: {
+            student: true,
+          },
+          orderBy: {
+            student: {
+              fullName: "asc",
+            },
+          },
+        },
+        sessions: {
+          include: {
+            records: true,
+          },
+          orderBy: {
+            sessionDate: "asc",
+          },
+        },
+      },
+    });
+
+    if (!subject) {
+      return { success: false, error: "Subject not found.", data: null };
+    }
+
+    return { success: true, data: subject };
+  } catch (error: unknown) {
+    console.error("Error fetching subject export data:", error);
+    return { success: false, error: "Failed to export subject attendance.", data: null };
   }
 }

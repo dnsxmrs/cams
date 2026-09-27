@@ -20,13 +20,22 @@ import {
   AlertCircle,
   Check,
   Trash,
+  Archive,
+  RotateCcw,
+  FileSpreadsheet,
+  Download,
+  AlertTriangle,
+  FolderArchive,
 } from "lucide-react";
 import {
   getTeacherSubjects,
   createSubject,
   updateSubject,
+  archiveSubject,
+  unarchiveSubject,
   deleteSubject,
 } from "@/actions/subjects";
+import { exportSubjectAttendanceCSV } from "@/lib/exportAttendance";
 
 export interface ScheduleSlot {
   day: "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";
@@ -41,6 +50,7 @@ export interface SubjectWithCount {
   description: string | null;
   schedules: string | null;
   color: string | null;
+  isArchived: boolean;
   teacherId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -99,6 +109,7 @@ const emptySubscribe = () => () => {};
 
 export default function SubjectsPage() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
   const [subjects, setSubjects] = useState<SubjectWithCount[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -106,7 +117,9 @@ export default function SubjectsPage() {
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<SubjectWithCount | null>(null);
+  const [archivingSubject, setArchivingSubject] = useState<SubjectWithCount | null>(null);
   const [deletingSubject, setDeletingSubject] = useState<SubjectWithCount | null>(null);
+  const [deleteConfirmCode, setDeleteConfirmCode] = useState("");
 
   // Form states
   const [formData, setFormData] = useState({
@@ -115,6 +128,7 @@ export default function SubjectsPage() {
     description: "",
     color: "blue",
   });
+
   const [scheduleSlots, setScheduleSlots] = useState<ScheduleSlot[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
@@ -125,9 +139,9 @@ export default function SubjectsPage() {
     () => false
   );
 
-  const fetchSubjects = useCallback(async (query?: string) => {
+  const fetchSubjects = useCallback(async (query?: string, isArchivedTab: boolean = false) => {
     setIsLoading(true);
-    const res = await getTeacherSubjects(query);
+    const res = await getTeacherSubjects(query, isArchivedTab);
     if (res.success && res.data) {
       setSubjects(res.data as SubjectWithCount[]);
     } else {
@@ -138,11 +152,11 @@ export default function SubjectsPage() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchSubjects(search);
+      fetchSubjects(search, activeTab === "archived");
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [search, fetchSubjects]);
+  }, [search, activeTab, fetchSubjects]);
 
   const resetForm = () => {
     setFormData({ code: "", name: "", description: "", color: "blue" });
@@ -226,7 +240,8 @@ export default function SubjectsPage() {
         toast.success(`Subject "${formData.code.toUpperCase()}" updated successfully!`);
         setEditingSubject(null);
         resetForm();
-        fetchSubjects(search);
+        await fetchSubjects(search, activeTab === "archived");
+        router.refresh();
       } else {
         setFormError(res.error || "Failed to update subject.");
         toast.error(res.error || "Update failed.");
@@ -238,6 +253,8 @@ export default function SubjectsPage() {
         setIsAddModalOpen(false);
         const createdId = res.data.id;
         resetForm();
+        await fetchSubjects(search, activeTab === "archived");
+        router.refresh();
         router.push(`/subjects/${createdId}/enrollments`);
       } else {
         setFormError(res.error || "Failed to create subject.");
@@ -248,15 +265,54 @@ export default function SubjectsPage() {
     setIsSubmitting(false);
   };
 
+  const handleArchiveSubject = async () => {
+    if (!archivingSubject) return;
+    setIsSubmitting(true);
+
+    const res = await archiveSubject(archivingSubject.id);
+    if (res.success) {
+      toast.success(`Subject "${archivingSubject.code}" archived successfully.`);
+      setArchivingSubject(null);
+      await fetchSubjects(search, activeTab === "archived");
+      router.refresh();
+    } else {
+      toast.error(res.error || "Failed to archive subject.");
+    }
+
+    setIsSubmitting(false);
+  };
+
+  const handleUnarchiveSubject = async (sub: SubjectWithCount) => {
+    setIsSubmitting(true);
+
+    const res = await unarchiveSubject(sub.id);
+    if (res.success) {
+      toast.success(`Subject "${sub.code}" restored to active list.`);
+      await fetchSubjects(search, activeTab === "archived");
+      router.refresh();
+    } else {
+      toast.error(res.error || "Failed to restore subject.");
+    }
+
+    setIsSubmitting(false);
+  };
+
   const handleDeleteSubject = async () => {
     if (!deletingSubject) return;
+    if (deleteConfirmCode.trim().toUpperCase() !== deletingSubject.code.toUpperCase()) {
+      toast.error(`Please type "${deletingSubject.code}" to confirm deletion.`);
+      return;
+    }
+
     setIsSubmitting(true);
 
     const res = await deleteSubject(deletingSubject.id);
     if (res.success) {
-      toast.success(`Subject "${deletingSubject.code}" deleted.`);
+      toast.success(`Subject "${deletingSubject.code}" permanently deleted.`);
       setDeletingSubject(null);
-      fetchSubjects(search);
+      setDeleteConfirmCode("");
+      await fetchSubjects(search, activeTab === "archived");
+      router.refresh();
     } else {
       toast.error(res.error || "Failed to delete subject.");
     }
@@ -266,37 +322,66 @@ export default function SubjectsPage() {
 
   return (
     <div className="space-y-6 relative pb-16">
-      {/* Top Control Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search subjects by code or title..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all shadow-2xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded-full cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+      {/* Active vs Archived Tab Selector & Top Controls */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Tabs */}
+        <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800/90 rounded-2xl w-fit border border-slate-200/80 dark:border-slate-700/80">
+          <button
+            onClick={() => setActiveTab("active")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === "active"
+                ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Active Subjects</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("archived")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === "archived"
+                ? "bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-sm"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            <FolderArchive className="w-3.5 h-3.5" />
+            <span>Archived History</span>
+          </button>
         </div>
 
-        <div className="flex items-center justify-between sm:justify-end gap-3 text-xs font-semibold text-slate-500 dark:text-slate-400 px-1">
+        {/* Search Bar & Add Button */}
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 md:w-72">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search subjects..."
+              className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all shadow-2xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded-full cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
           {isLoading && <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />}
 
-          <button
-            onClick={handleOpenAddModal}
-            className="hidden md:flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold text-xs rounded-xl shadow-xs shadow-blue-600/20 transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Subject</span>
-          </button>
+          {activeTab === "active" && (
+            <button
+              onClick={handleOpenAddModal}
+              className="hidden md:flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold text-xs rounded-xl shadow-xs shadow-blue-600/20 transition-all cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Subject</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -304,7 +389,7 @@ export default function SubjectsPage() {
       {isLoading && subjects.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-12 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
           <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400" />
-          <p>Loading your subjects from database...</p>
+          <p>Loading {activeTab === "archived" ? "archived" : "active"} subjects...</p>
         </div>
       ) : subjects.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -315,42 +400,87 @@ export default function SubjectsPage() {
             return (
               <div
                 key={sub.id}
-                className="group bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 rounded-2xl p-5 sm:p-6 shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between relative overflow-hidden"
+                className={`group bg-white dark:bg-slate-900 border ${
+                  activeTab === "archived"
+                    ? "border-amber-200/80 dark:border-amber-950/60 bg-amber-50/20 dark:bg-amber-950/10"
+                    : "border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+                } rounded-2xl p-5 sm:p-6 shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between relative overflow-hidden`}
               >
                 {/* Color Top Accent Stripe */}
                 <div
                   className="absolute top-0 inset-x-0 h-1.5 transition-all"
-                  style={{ backgroundColor: theme.hex }}
+                  style={{ backgroundColor: activeTab === "archived" ? "#f59e0b" : theme.hex }}
                 />
 
                 <div>
-                  {/* Header: Code Badge, Counts, Edit/Delete */}
+                  {/* Header: Code Badge, Counts, Actions */}
                   <div className="flex items-center justify-between gap-2 mb-3 pt-1">
-                    <span
-                      className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold border ${theme.bg} ${theme.border} ${theme.text}`}
-                    >
-                      {sub.code}
-                    </span>
-
                     <div className="flex items-center gap-2">
+                      <span
+                        className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold border ${theme.bg} ${theme.border} ${theme.text}`}
+                      >
+                        {sub.code}
+                      </span>
+                      {activeTab === "archived" && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 uppercase tracking-wider">
+                          Archived
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
                       <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100/90 dark:bg-slate-800 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
                         <Users className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                         {sub._count.enrollments} Enrolled
                       </span>
+
+                      {/* Export CSV Button */}
                       <button
-                        onClick={() => handleOpenEditModal(sub)}
-                        className="p-1 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
-                        title="Edit Subject"
+                        onClick={() => exportSubjectAttendanceCSV(sub.id, sub.code)}
+                        className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
+                        title="Export Attendance to CSV/Excel"
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
+                        <FileSpreadsheet className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => setDeletingSubject(sub)}
-                        className="p-1 rounded-lg text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
-                        title="Delete Subject"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+
+                      {activeTab === "active" ? (
+                        <>
+                          <button
+                            onClick={() => handleOpenEditModal(sub)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+                            title="Edit Subject"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setArchivingSubject(sub)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors cursor-pointer"
+                            title="Archive Subject (Preserve Data)"
+                          >
+                            <Archive className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleUnarchiveSubject(sub)}
+                            className="p-1.5 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+                            title="Restore Subject to Active"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setDeleteConfirmCode("");
+                              setDeletingSubject(sub);
+                            }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                            title="Permanently Delete Subject"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -368,32 +498,51 @@ export default function SubjectsPage() {
 
                 {/* Card Footer */}
                 <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                  <Link
-                    href={`/subjects/${sub.id}/enrollments`}
-                    className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100/80 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 rounded-xl transition-colors flex items-center gap-1.5"
-                  >
-                    <UserCheck className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                    <span>Enrollments</span>
-                  </Link>
-
-                  {/* Disable Take Attendance if 0 enrolled students */}
-                  {sub._count.enrollments === 0 ? (
-                    <button
-                      disabled
-                      title="Enroll students first to take attendance"
-                      className="px-4 py-2 text-xs font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center gap-1.5 cursor-not-allowed opacity-60 border border-slate-200 dark:border-slate-700"
-                    >
-                      <Zap className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Take Attendance</span>
-                    </button>
-                  ) : (
+                  <div className="flex items-center gap-2">
                     <Link
-                      href={`/subjects/${sub.id}/attendance`}
-                      className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl transition-all shadow-2xs shadow-blue-600/20 flex items-center gap-1.5"
+                      href={`/subjects/${sub.id}/enrollments`}
+                      className="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100/80 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 rounded-xl transition-colors flex items-center gap-1.5"
                     >
-                      <Zap className="w-3.5 h-3.5" />
-                      <span>Take Attendance</span>
+                      <UserCheck className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                      <span>Roster ({sub._count.enrollments})</span>
                     </Link>
+
+                    {/* <button
+                      onClick={() => exportSubjectAttendanceCSV(sub.id, sub.code)}
+                      className="px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer border border-emerald-200/60 dark:border-emerald-800/60"
+                    >
+                      <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Export CSV</span>
+                    </button> */}
+                  </div>
+
+                  {activeTab === "active" ? (
+                    sub._count.enrollments === 0 ? (
+                      <button
+                        disabled
+                        title="Enroll students first to take attendance"
+                        className="px-3.5 py-1.5 text-xs font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center gap-1.5 cursor-not-allowed opacity-60 border border-slate-200 dark:border-slate-700"
+                      >
+                        <Zap className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Take Attendance</span>
+                      </button>
+                    ) : (
+                      <Link
+                        href={`/subjects/${sub.id}/attendance`}
+                        className="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl transition-all shadow-2xs shadow-blue-600/20 flex items-center gap-1.5"
+                      >
+                        <Zap className="w-3.5 h-3.5" />
+                        <span>Take Attendance</span>
+                      </Link>
+                    )
+                  ) : (
+                    <button
+                      onClick={() => handleUnarchiveSubject(sub)}
+                      className="px-3.5 py-1.5 text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 hover:bg-amber-200 dark:hover:bg-amber-900/80 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer border border-amber-300/60 dark:border-amber-800"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Restore Subject</span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -401,16 +550,22 @@ export default function SubjectsPage() {
           })}
         </div>
       ) : (
-        /* Empty State Container spanning full width matching top control bar */
+        /* Empty State Container */
         <div className="w-full bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-12 text-center my-4 py-16 shadow-xs flex flex-col items-center justify-center">
           <div className="w-14 h-14 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-200/60 dark:border-blue-800">
-            <BookOpen className="w-7 h-7" />
+            {activeTab === "archived" ? <FolderArchive className="w-7 h-7 text-amber-600 dark:text-amber-400" /> : <BookOpen className="w-7 h-7" />}
           </div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">No subjects found</h3>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+            {activeTab === "archived" ? "No archived subjects" : "No subjects found"}
+          </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-            {search ? `No results for "${search}". Try searching with a different term.` : "You haven't added any subjects yet. Create your first subject to manage classes and rosters."}
+            {activeTab === "archived"
+              ? "You haven't archived any subjects. When a semester finishes, archive subjects to clean up your view while preserving all attendance history."
+              : search
+              ? `No results for "${search}". Try searching with a different term.`
+              : "You haven't added any active subjects yet. Create your first subject to manage classes and rosters."}
           </p>
-          {!search && (
+          {!search && activeTab === "active" && (
             <button
               onClick={handleOpenAddModal}
               className="mt-6 px-5 py-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md transition-all inline-flex items-center gap-2 cursor-pointer active:scale-95"
@@ -423,6 +578,7 @@ export default function SubjectsPage() {
 
       {/* Floating Add Subject Button (Mobile View) */}
       {isMounted &&
+        activeTab === "active" &&
         createPortal(
           <button
             onClick={handleOpenAddModal}
@@ -459,9 +615,6 @@ export default function SubjectsPage() {
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
                     {editingSubject ? "Edit Subject" : "Add New Subject"}
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {editingSubject ? "Modify subject code, schedule or color" : "Create a subject entry and configure independent day timeslots"}
-                  </p>
                 </div>
               </div>
 
@@ -504,10 +657,10 @@ export default function SubjectsPage() {
                   </div>
                 </div>
 
-                {/* 15-COLOR SELECTOR */}
+                {/* COLOR SELECTOR */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                    Subject Color Theme <span className="text-slate-400 font-normal">(15 Colors Available)</span>
+                    Subject Color Theme
                   </label>
                   <div className="grid grid-cols-5 gap-2 p-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl">
                     {SUBJECT_COLORS.map((c) => {
@@ -532,13 +685,12 @@ export default function SubjectsPage() {
                   </div>
                 </div>
 
-                {/* INDEPENDENT DAY & TIME SELECTOR */}
+                {/* DAY & TIME SELECTOR */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                      Schedule & Timeslots <span className="text-slate-400 font-normal">(Select Days)</span>
+                      Schedule & Timeslots
                     </label>
-                    <span className="text-[10px] text-slate-400">Independent times per day</span>
                   </div>
 
                   {/* Day Picker Pills */}
@@ -562,7 +714,6 @@ export default function SubjectsPage() {
                     })}
                   </div>
 
-                  {/* Selected Days Timeslot Config Rows */}
                   {scheduleSlots.length > 0 ? (
                     <div className="mt-3 space-y-2 max-h-48 overflow-y-auto pr-1">
                       {scheduleSlots.map((slot) => (
@@ -608,7 +759,7 @@ export default function SubjectsPage() {
                   )}
                 </div>
 
-                {/* Additional Description */}
+                {/* Description */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                     Notes / Description <span className="text-slate-400 font-normal">(Optional)</span>
@@ -648,36 +799,118 @@ export default function SubjectsPage() {
           document.body
         )}
 
-      {/* Delete Subject Confirmation Modal */}
-      {deletingSubject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
-            <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
-              <AlertCircle className="w-6 h-6 shrink-0" />
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Delete Subject?</h2>
+      {/* Archive Subject Modal */}
+      {isMounted &&
+        archivingSubject &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4 animate-in zoom-in-95 duration-150 relative">
+              <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400">
+                <Archive className="w-6 h-6 shrink-0" />
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">Archive Subject?</h2>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                Are you sure you want to archive <strong className="text-slate-900 dark:text-white">{archivingSubject.code} - {archivingSubject.name}</strong>?
+                <br /><br />
+                Archiving will hide this subject from your active daily list, but <strong className="text-emerald-600 dark:text-emerald-400">all student enrollments, attendance logs, and reports will remain safe</strong>. You can view or restore it anytime from the <em>Archived History</em> tab.
+              </p>
+
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 rounded-xl flex items-center justify-between gap-2 text-xs">
+                <span className="text-emerald-800 dark:text-emerald-300 font-medium">Download backup before archiving:</span>
+                {/* <button
+                  type="button"
+                  onClick={() => exportSubjectAttendanceCSV(archivingSubject.id, archivingSubject.code)}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <Download className="w-3 h-3" />
+                  <span>Export CSV</span>
+                </button> */}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={() => setArchivingSubject(null)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleArchiveSubject}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Archive Subject
+                </button>
+              </div>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-300">
-              Are you sure you want to delete <strong className="text-slate-900 dark:text-white">{deletingSubject.code} - {deletingSubject.name}</strong>? This will also remove all attendance sessions and student enrollments linked to this subject.
-            </p>
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                onClick={() => setDeletingSubject(null)}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs rounded-xl transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteSubject}
-                disabled={isSubmitting}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
-              >
-                {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Delete Subject
-              </button>
+          </div>,
+          document.body
+        )}
+
+      {/* Permanent Delete Confirmation Modal (with Subject Code Confirmation) */}
+      {isMounted &&
+        deletingSubject &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4 animate-in zoom-in-95 duration-150 relative">
+              <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
+                <AlertTriangle className="w-6 h-6 shrink-0" />
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">Permanently Delete Subject?</h2>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                This will <strong className="text-red-600 dark:text-red-400">permanently erase</strong> <strong className="text-slate-900 dark:text-white">{deletingSubject.code} - {deletingSubject.name}</strong> along with all <strong className="text-red-600">{deletingSubject._count.sessions} attendance sessions</strong> and <strong className="text-red-600">{deletingSubject._count.enrollments} enrollments</strong>.
+                This action cannot be undone.
+              </p>
+
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 rounded-xl flex items-center justify-between gap-2 text-xs">
+                <span className="text-emerald-800 dark:text-emerald-300 font-medium">Save a copy before deleting:</span>
+                {/* <button
+                  type="button"
+                  onClick={() => exportSubjectAttendanceCSV(deletingSubject.id, deletingSubject.code)}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <Download className="w-3 h-3" />
+                  <span>Export CSV</span>
+                </button> */}
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Type subject code <span className="font-mono text-red-600 font-extrabold">{deletingSubject.code}</span> to confirm:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmCode}
+                  onChange={(e) => setDeleteConfirmCode(e.target.value)}
+                  placeholder={`Type "${deletingSubject.code}" here`}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono uppercase text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={() => {
+                    setDeletingSubject(null);
+                    setDeleteConfirmCode("");
+                  }}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteSubject}
+                  disabled={isSubmitting || deleteConfirmCode.trim().toUpperCase() !== deletingSubject.code.toUpperCase()}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Delete Permanently
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
