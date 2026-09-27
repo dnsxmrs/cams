@@ -5,12 +5,15 @@ import { createPortal } from "react-dom";
 import { Globe, Plus, Search, Edit2, Trash2, BookOpen, Loader2, X, AlertCircle, Upload } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { getStudents, createStudent, updateStudent, deleteStudent, importStudents } from "@/actions/students";
+import { formatStudentName } from "@/lib/student";
 import Pagination from "@/app/components/Pagination";
 
 interface StudentWithCount {
   id: string;
   studentNumber: string;
-  fullName: string;
+  lastName: string;
+  firstName: string;
+  middleInitial: string | null;
   email: string | null;
   contactInfo: string | null;
   createdAt: Date;
@@ -28,18 +31,49 @@ function parseCsvLine(line: string) {
     .map((value) => value.trim().replace(/^"|"$/g, "").replace(/""/g, '"'));
 }
 
+function parseNameString(rawName: string) {
+  const trimmed = rawName.trim();
+  if (!trimmed) return { lastName: "", firstName: "", middleInitial: "" };
+
+  if (trimmed.includes(",")) {
+    const [lastPart, restPart] = trimmed.split(",").map((s) => s.trim());
+    const restTokens = (restPart || "").split(/\s+/).filter(Boolean);
+    let middleInitial = "";
+    let firstName = restPart || "";
+    if (restTokens.length > 1 && restTokens[restTokens.length - 1].length <= 2) {
+      middleInitial = restTokens.pop()?.replace(/\.$/, "") || "";
+      firstName = restTokens.join(" ");
+    }
+    return { lastName: lastPart || "", firstName, middleInitial };
+  } else {
+    const tokens = trimmed.split(/\s+/).filter(Boolean);
+    if (tokens.length === 1) return { lastName: tokens[0], firstName: tokens[0], middleInitial: "" };
+    if (tokens.length === 2) return { lastName: tokens[1], firstName: tokens[0], middleInitial: "" };
+    let middleInitial = "";
+    if (tokens[1].length <= 2) {
+      middleInitial = tokens[1].replace(/\.$/, "");
+      return { lastName: tokens.slice(2).join(" "), firstName: tokens[0], middleInitial };
+    }
+    return { lastName: tokens[tokens.length - 1], firstName: tokens.slice(0, tokens.length - 1).join(" "), middleInitial };
+  }
+}
+
 function parseStudentCsv(csv: string) {
   const lines = csv.split(/\r?\n/).filter((line) => line.trim());
   if (lines.length === 0) return [];
 
   const firstRow = parseCsvLine(lines[0]).map((value) => value.toLowerCase().replace(/[^a-z]/g, ""));
   const hasHeader = firstRow.some((value) =>
-    ["studentnumber", "studentid", "id", "fullname", "name"].includes(value)
+    ["studentnumber", "studentid", "id", "lastname", "firstname", "fullname", "name"].includes(value)
   );
-  const headers = hasHeader ? firstRow : ["studentnumber", "fullname", "email", "contactinfo"];
+  const headers = hasHeader ? firstRow : ["studentnumber", "lastname", "firstname", "middleinitial", "email", "contactinfo"];
   const rows = hasHeader ? lines.slice(1) : lines;
   const indexOf = (names: string[]) => headers.findIndex((header) => names.includes(header));
+  
   const studentNumberIndex = indexOf(["studentnumber", "studentid", "id"]);
+  const lastNameIndex = indexOf(["lastname", "last", "familyname", "surname"]);
+  const firstNameIndex = indexOf(["firstname", "first", "givenname"]);
+  const middleInitialIndex = indexOf(["middleinitial", "mi", "middlename", "middle"]);
   const fullNameIndex = indexOf(["fullname", "name"]);
   const emailIndex = indexOf(["email", "emailaddress"]);
   const contactIndex = indexOf(["contact", "contactinfo", "phone", "phonenumber"]);
@@ -47,14 +81,33 @@ function parseStudentCsv(csv: string) {
   return rows
     .map((line) => {
       const values = parseCsvLine(line);
+      const studentNumber = values[studentNumberIndex >= 0 ? studentNumberIndex : 0] || "";
+      let lastName = "";
+      let firstName = "";
+      let middleInitial = "";
+
+      if (lastNameIndex >= 0 || firstNameIndex >= 0) {
+        lastName = values[lastNameIndex >= 0 ? lastNameIndex : 1] || "";
+        firstName = values[firstNameIndex >= 0 ? firstNameIndex : 2] || "";
+        middleInitial = values[middleInitialIndex >= 0 ? middleInitialIndex : 3] || "";
+      } else if (fullNameIndex >= 0) {
+        const rawName = values[fullNameIndex] || "";
+        const parsed = parseNameString(rawName);
+        lastName = parsed.lastName;
+        firstName = parsed.firstName;
+        middleInitial = parsed.middleInitial;
+      }
+
       return {
-        studentNumber: values[studentNumberIndex >= 0 ? studentNumberIndex : 0] || "",
-        fullName: values[fullNameIndex >= 0 ? fullNameIndex : 1] || "",
-        email: values[emailIndex >= 0 ? emailIndex : 2] || "",
-        contactInfo: values[contactIndex >= 0 ? contactIndex : 3] || "",
+        studentNumber,
+        lastName,
+        firstName,
+        middleInitial,
+        email: values[emailIndex >= 0 ? emailIndex : 4] || "",
+        contactInfo: values[contactIndex >= 0 ? contactIndex : 5] || "",
       };
     })
-    .filter((student) => student.studentNumber || student.fullName || student.email || student.contactInfo);
+    .filter((student) => student.studentNumber || student.lastName || student.firstName || student.email || student.contactInfo);
 }
 
 export default function StudentDirectoryPage() {
@@ -72,7 +125,9 @@ export default function StudentDirectoryPage() {
   // Form States
   const [formData, setFormData] = useState({
     studentNumber: "",
-    fullName: "",
+    lastName: "",
+    firstName: "",
+    middleInitial: "",
     email: "",
     contactInfo: "",
   });
@@ -85,7 +140,7 @@ export default function StudentDirectoryPage() {
     const res = await getStudents(query);
     if (res.success && res.data) {
       const sortedStudents = [...(res.data as StudentWithCount[])].sort((a, b) =>
-        a.fullName.localeCompare(b.fullName, undefined, { sensitivity: "base" })
+        formatStudentName(a).localeCompare(formatStudentName(b), undefined, { sensitivity: "base" })
       );
       setStudents(sortedStudents);
       setCurrentPage(1);
@@ -104,7 +159,7 @@ export default function StudentDirectoryPage() {
   }, [search, fetchStudents]);
 
   const resetForm = () => {
-    setFormData({ studentNumber: "", fullName: "", email: "", contactInfo: "" });
+    setFormData({ studentNumber: "", lastName: "", firstName: "", middleInitial: "", email: "", contactInfo: "" });
     setFormError("");
     setEditingStudent(null);
   };
@@ -119,7 +174,9 @@ export default function StudentDirectoryPage() {
     setEditingStudent(st);
     setFormData({
       studentNumber: st.studentNumber,
-      fullName: st.fullName,
+      lastName: st.lastName,
+      firstName: st.firstName,
+      middleInitial: st.middleInitial || "",
       email: st.email || "",
       contactInfo: st.contactInfo || "",
     });
@@ -133,12 +190,12 @@ export default function StudentDirectoryPage() {
       setFormError("Student ID / Number is required.");
       return;
     }
-    if (!formData.fullName.trim()) {
-      setFormError("Full name is required.");
+    if (!formData.lastName.trim()) {
+      setFormError("Last name is required.");
       return;
     }
-    if (formData.fullName.trim().length < 2) {
-      setFormError("Full name must be at least 2 characters.");
+    if (!formData.firstName.trim()) {
+      setFormError("First name is required.");
       return;
     }
     if (formData.email.trim() && !/^\S+@\S+\.\S+$/.test(formData.email.trim())) {
@@ -242,7 +299,7 @@ export default function StudentDirectoryPage() {
         <div className="relative w-full sm:w-72">
           <input
             type="text"
-            placeholder="Search by student number, name, or email..."
+            placeholder="Search by ID, last/first name, or email..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -292,7 +349,7 @@ export default function StudentDirectoryPage() {
               <thead>
                 <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
                   <th className="py-3.5 px-4">Student ID</th>
-                  <th className="py-3.5 px-4">Full Name</th>
+                  <th className="py-3.5 px-4">Student Name (Last, First M.I.)</th>
                   <th className="py-3.5 px-4">Email</th>
                   <th className="py-3.5 px-4">Contact</th>
                   <th className="py-3.5 px-4">Enrolled Subjects</th>
@@ -303,7 +360,7 @@ export default function StudentDirectoryPage() {
                 {visibleStudents.map((st) => (
                   <tr key={st.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="py-3.5 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">{st.studentNumber}</td>
-                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">{st.fullName}</td>
+                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">{formatStudentName(st)}</td>
                     <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{st.email || "—"}</td>
                     <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">{st.contactInfo || "—"}</td>
                     <td className="py-3.5 px-4">
@@ -314,13 +371,13 @@ export default function StudentDirectoryPage() {
                     <td className="py-3.5 px-4 text-right space-x-3">
                       <button
                         onClick={() => handleOpenEditModal(st)}
-                        className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 inline-flex items-center gap-1 transition-colors"
+                        className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 inline-flex items-center gap-1 transition-colors cursor-pointer"
                       >
                         <Edit2 className="w-3.5 h-3.5" /> Edit
                       </button>
                       <button
                         onClick={() => setDeletingStudent(st)}
-                        className="text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 inline-flex items-center gap-1 transition-colors"
+                        className="text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 inline-flex items-center gap-1 transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" /> Delete
                       </button>
@@ -378,7 +435,7 @@ export default function StudentDirectoryPage() {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. 2024-0001"
+                  placeholder="e.g. STU-2026-001"
                   value={formData.studentNumber}
                   onChange={(e) => setFormData({ ...formData, studentNumber: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none"
@@ -386,17 +443,47 @@ export default function StudentDirectoryPage() {
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Last Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Dela Cruz"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    First Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Juan"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none"
+                    required
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Full Name <span className="text-red-500">*</span>
+                  Middle Initial <span className="text-slate-400 font-normal">(Optional, e.g. A)</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Ada Lovelace"
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  placeholder="e.g. A"
+                  maxLength={5}
+                  value={formData.middleInitial}
+                  onChange={(e) => setFormData({ ...formData, middleInitial: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none"
-                  required
                 />
               </div>
 
@@ -406,7 +493,7 @@ export default function StudentDirectoryPage() {
                 </label>
                 <input
                   type="email"
-                  placeholder="e.g. ada.lovelace@school.edu"
+                  placeholder="e.g. juan.delacruz@school.edu"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none"
@@ -419,7 +506,7 @@ export default function StudentDirectoryPage() {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. +1 555-0101"
+                  placeholder="e.g. +63 9123456789"
                   value={formData.contactInfo}
                   onChange={(e) => setFormData({ ...formData, contactInfo: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none"
@@ -433,14 +520,14 @@ export default function StudentDirectoryPage() {
                     setIsAddModalOpen(false);
                     setEditingStudent(null);
                   }}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs rounded-xl transition-colors"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   {editingStudent ? "Save Changes" : "Create Student"}
@@ -463,19 +550,19 @@ export default function StudentDirectoryPage() {
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Delete Student?</h2>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-300">
-              Are you sure you want to remove <strong className="text-slate-900 dark:text-white">{deletingStudent.fullName}</strong> ({deletingStudent.studentNumber}) from the global directory? This will also remove their subject enrollments.
+              Are you sure you want to remove <strong className="text-slate-900 dark:text-white">{formatStudentName(deletingStudent)}</strong> ({deletingStudent.studentNumber}) from the global directory? This will also remove their subject enrollments.
             </p>
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 onClick={() => setDeletingStudent(null)}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs rounded-xl transition-colors"
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteStudent}
                 disabled={isSubmitting}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 Delete Student
