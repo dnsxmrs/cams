@@ -204,8 +204,8 @@ export default function SubjectsPage() {
 
   const isLoading =
     activeTab === "active"
-      ? activeSubjects === null && isLoadingActive
-      : archivedSubjects === null && isLoadingArchived;
+      ? activeSubjects === null || isLoadingActive
+      : archivedSubjects === null || isLoadingArchived;
 
   const resetForm = () => {
     setFormData({ code: "", name: "", description: "", color: "blue" });
@@ -374,7 +374,7 @@ export default function SubjectsPage() {
       {/* Active vs Archived Tab Selector & Top Controls */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Tabs */}
-        <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800/90 rounded-2xl w-fit border border-slate-200/80 dark:border-slate-700/80">
+        <div className="order-1 md:order-2 flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800/90 rounded-2xl w-fit border border-slate-200/80 dark:border-slate-700/80">
           <button
             onClick={() => setActiveTab("active")}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
@@ -384,7 +384,7 @@ export default function SubjectsPage() {
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>Active Subjects</span>
+            <span>Active</span>
           </button>
           <button
             onClick={() => setActiveTab("archived")}
@@ -395,12 +395,12 @@ export default function SubjectsPage() {
             }`}
           >
             <FolderArchive className="w-3.5 h-3.5" />
-            <span>Archived History</span>
+            <span>Archived</span>
           </button>
         </div>
 
         {/* Search Bar & Add Button */}
-        <div className="flex items-center gap-3">
+        <div className="order-2 md:order-1 flex items-center gap-3">
           <div className="relative flex-1 md:w-72">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
             <input
@@ -420,8 +420,6 @@ export default function SubjectsPage() {
             )}
           </div>
 
-          {isLoading && <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />}
-
           {activeTab === "active" && (
             <button
               onClick={handleOpenAddModal}
@@ -436,9 +434,11 @@ export default function SubjectsPage() {
 
       {/* Subject Cards Grid */}
       {isLoading && filteredSubjects.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-12 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
-          <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400" />
-          <p>Loading {activeTab === "archived" ? "archived" : "active"} subjects...</p>
+        <div className="w-full bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-12 text-center my-4 py-16 shadow-xs flex flex-col items-center justify-center">
+          <Loader2 className="w-7 h-7 animate-spin text-blue-600 dark:text-blue-400 mb-3" />
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+            Loading {activeTab === "archived" ? "archived" : "active"} subjects...
+          </p>
         </div>
       ) : filteredSubjects.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -462,22 +462,20 @@ export default function SubjectsPage() {
                 />
 
                 <div>
-                  {/* Header: Code Badge, Counts, Actions */}
-                  <div className="flex items-center justify-between gap-2 mb-3 pt-1">
-                    <div className="flex items-center gap-2">
+                  {/* Header: Title, Code Badge, Counts, Actions */}
+                  <div className="flex flex-wrap items-start sm:items-center justify-between gap-2.5 mb-3 pt-1">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        {sub.name}
+                      </h2>
                       <span
-                        className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold border ${theme.bg} ${theme.border} ${theme.text}`}
+                        className={`px-2.5 py-0.5 rounded-md text-xs font-mono font-bold border ${theme.bg} ${theme.border} ${theme.text}`}
                       >
                         {sub.code}
                       </span>
-                      {activeTab === "archived" && (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 uppercase tracking-wider">
-                          Archived
-                        </span>
-                      )}
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100/90 dark:bg-slate-800 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
                         <Users className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                         {sub._count.enrollments} Enrolled
@@ -533,11 +531,6 @@ export default function SubjectsPage() {
                     </div>
                   </div>
 
-                  {/* Subject Title */}
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    {sub.name}
-                  </h2>
-
                   {/* Schedule Display */}
                   <div className="mt-2.5 flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
                     <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
@@ -553,7 +546,7 @@ export default function SubjectsPage() {
                       className="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100/80 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 rounded-xl transition-colors flex items-center gap-1.5"
                     >
                       <UserCheck className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                      <span>Roster ({sub._count.enrollments})</span>
+                      <span>Enroll Students</span>
                     </Link>
 
                     {/* <button
@@ -861,7 +854,7 @@ export default function SubjectsPage() {
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                 Are you sure you want to archive <strong className="text-slate-900 dark:text-white">{archivingSubject.code} - {archivingSubject.name}</strong>?
                 <br /><br />
-                Archiving will hide this subject from your active daily list, but <strong className="text-emerald-600 dark:text-emerald-400">all student enrollments, attendance logs, and reports will remain safe</strong>. You can view or restore it anytime from the <em>Archived History</em> tab.
+                Archiving will hide this subject from your active daily list, but <strong className="text-emerald-600 dark:text-emerald-400">all student enrollments, attendance logs, and reports will remain safe</strong>. You can view or restore it anytime from the <em>Archived Subjects</em> tab.
               </p>
 
               <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 rounded-xl flex items-center justify-between gap-2 text-xs">

@@ -268,7 +268,7 @@ export default function SubjectEnrollmentsPage({
                     <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
                       <th className="py-3.5 px-4">Student ID</th>
                       <th className="py-3.5 px-4">Full Name</th>
-                      <th className="py-3.5 px-4">Email</th>
+                      {/* <th className="py-3.5 px-4">Email</th> */}
                       <th className="py-3.5 px-4">Contact</th>
                       <th className="py-3.5 px-4">Enrolled Date</th>
                       <th className="py-3.5 px-4 text-right">Actions</th>
@@ -283,7 +283,7 @@ export default function SubjectEnrollmentsPage({
                         <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
                           {item.student.fullName}
                         </td>
-                        <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{item.student.email || "—"}</td>
+                        {/* <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{item.student.email || "—"}</td> */}
                         <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">{item.student.contactInfo || "—"}</td>
                         <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 font-medium">
                           {new Date(item.enrolledAt).toLocaleDateString(undefined, {
@@ -436,9 +436,6 @@ export default function SubjectEnrollmentsPage({
                           </span>
                           <span className="font-bold text-slate-900 dark:text-white">{st.fullName}</span>
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          {st.email || "No email"} {st.contactInfo ? `• ${st.contactInfo}` : ""}
-                        </p>
                       </div>
 
                       <button
