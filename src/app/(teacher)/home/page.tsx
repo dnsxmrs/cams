@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import { authClient } from "@/lib/auth-client";
@@ -53,18 +53,22 @@ export default function TeacherHome() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
-  const fetchSubjects = useCallback(async () => {
-    setIsLoadingSubjects(true);
-    const res = await getTeacherSubjects();
-    if (res.success && res.data) {
-      setSubjects(res.data as SubjectWithCount[]);
-    }
-    setIsLoadingSubjects(false);
-  }, []);
-
   useEffect(() => {
-    fetchSubjects();
-  }, [fetchSubjects]);
+    let ignore = false;
+    async function loadSubjects() {
+      const res = await getTeacherSubjects();
+      if (!ignore) {
+        if (res.success && res.data) {
+          setSubjects(res.data as SubjectWithCount[]);
+        }
+        setIsLoadingSubjects(false);
+      }
+    }
+    loadSubjects();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const handleCreateSubject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -319,7 +323,7 @@ export default function TeacherHome() {
           <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-xs">
             <BookOpen className="w-6 h-6 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
             <p className="font-bold text-slate-700 dark:text-slate-200">No subjects found</p>
-            <p className="mt-0.5">Click 'New Subject' above to create your first class roster.</p>
+            <p className="mt-0.5">Click &apos;New Subject&apos; above to create your first class roster.</p>
           </div>
         )}
       </div>

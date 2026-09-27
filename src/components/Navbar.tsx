@@ -22,21 +22,23 @@ export default function Navbar() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const profileRef = useRef<HTMLDivElement>(null);
-
-  // Load saved theme preference on mount
-  useEffect(() => {
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
     const savedTheme = localStorage.getItem("theme");
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    if (savedTheme === "dark" || (!savedTheme && prefersDark)) {
-      setIsDarkMode(true);
+    return savedTheme === "dark" || (!savedTheme && prefersDark);
+  });
+
+  // Sync class on document root when isDarkMode changes
+  useEffect(() => {
+    if (isDarkMode) {
       document.documentElement.classList.add("dark");
     } else {
-      setIsDarkMode(false);
       document.documentElement.classList.remove("dark");
     }
-  }, []);
+  }, [isDarkMode]);
+
+  const profileRef = useRef<HTMLDivElement>(null);
 
   // Close profile dropdown when clicking outside
   useEffect(() => {

@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, use } from "react";
+import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import {
   ArrowLeft,
   Calendar,
-  Clock,
   TrendingUp,
   Loader2,
   BookOpen,
@@ -51,22 +50,26 @@ export default function SubjectHistoryPage({
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchHistory = useCallback(async () => {
-    setIsLoading(true);
-    const res = await getTeacherAttendanceSessions();
-    if (res.success && res.data) {
-      const allSessions = res.data as SessionItem[];
-      const filtered = allSessions.filter((s) => s.subjectId === subjectId);
-      setSessions(filtered);
-    } else {
-      toast.error(res.error || "Failed to load subject history.");
-    }
-    setIsLoading(false);
-  }, [subjectId]);
-
   useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+    let ignore = false;
+    async function loadData() {
+      setIsLoading(true);
+      const res = await getTeacherAttendanceSessions();
+      if (ignore) return;
+      if (res.success && res.data) {
+        const allSessions = res.data as SessionItem[];
+        const filtered = allSessions.filter((s) => s.subjectId === subjectId);
+        setSessions(filtered);
+      } else {
+        toast.error(res.error || "Failed to load subject history.");
+      }
+      setIsLoading(false);
+    }
+    loadData();
+    return () => {
+      ignore = true;
+    };
+  }, [subjectId]);
 
   const subjectInfo = sessions[0]?.subject;
 

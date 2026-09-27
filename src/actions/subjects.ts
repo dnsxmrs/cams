@@ -147,9 +147,10 @@ export async function updateSubject(id: string, input: SubjectInput) {
     revalidatePath("/subjects");
     revalidatePath("/home");
     return { success: true, data: updated };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error updating subject:", error);
-    const errorMsg = error?.errors?.[0]?.message || error.message || "Failed to update subject.";
+    const errorMsg =
+      error instanceof Error ? error.message : "Failed to update subject.";
     return { success: false, error: errorMsg };
   }
 }

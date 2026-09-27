@@ -20,7 +20,7 @@ async function main() {
 
   if (!teacher) {
     console.log(`Creating teacher account for ${teacherEmail}...`);
-    const signupResponse = await auth.api.signUpEmail({
+    await auth.api.signUpEmail({
       body: {
         email: teacherEmail,
         password: teacherPassword,

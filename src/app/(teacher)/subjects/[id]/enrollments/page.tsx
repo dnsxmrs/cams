@@ -86,7 +86,6 @@ export default function SubjectEnrollmentsPage({
   );
 
   const fetchRoster = useCallback(async () => {
-    setIsLoading(true);
     const res = await getSubjectEnrollments(subjectId);
     if (res.success && res.data) {
       setSubject(res.data as SubjectDetail);
@@ -96,27 +95,43 @@ export default function SubjectEnrollmentsPage({
     setIsLoading(false);
   }, [subjectId]);
 
-  const fetchAvailableStudents = useCallback(
-    async (query?: string) => {
-      setIsLoadingAvailable(true);
-      const res = await getAvailableStudentsForSubject(subjectId, query);
-      if (res.success && res.data) {
-        setAvailableStudents(res.data as Student[]);
+  useEffect(() => {
+    let ignore = false;
+    async function loadRoster() {
+      const res = await getSubjectEnrollments(subjectId);
+      if (!ignore) {
+        if (res.success && res.data) {
+          setSubject(res.data as SubjectDetail);
+        } else {
+          toast.error(res.error || "Failed to load subject details.");
+        }
+        setIsLoading(false);
       }
-      setIsLoadingAvailable(false);
-    },
-    [subjectId]
-  );
-
-  useEffect(() => {
-    fetchRoster();
-  }, [fetchRoster]);
-
-  useEffect(() => {
-    if (isEnrollModalOpen) {
-      fetchAvailableStudents(availableSearch);
     }
-  }, [isEnrollModalOpen, availableSearch, fetchAvailableStudents]);
+    loadRoster();
+    return () => {
+      ignore = true;
+    };
+  }, [subjectId]);
+
+  useEffect(() => {
+    if (!isEnrollModalOpen) return;
+    let ignore = false;
+    async function loadAvailable() {
+      setIsLoadingAvailable(true);
+      const res = await getAvailableStudentsForSubject(subjectId, availableSearch);
+      if (!ignore) {
+        if (res.success && res.data) {
+          setAvailableStudents(res.data as Student[]);
+        }
+        setIsLoadingAvailable(false);
+      }
+    }
+    loadAvailable();
+    return () => {
+      ignore = true;
+    };
+  }, [isEnrollModalOpen, availableSearch, subjectId]);
 
   const handleEnrollStudent = async (st: Student) => {
     setEnrollingMap((prev) => ({ ...prev, [st.id]: true }));

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShieldAlert, Home, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 export default function Forbidden() {
   return (

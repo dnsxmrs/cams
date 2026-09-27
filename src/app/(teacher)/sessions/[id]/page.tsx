@@ -59,27 +59,36 @@ export default function SessionDetailPage({
   const [search, setSearch] = useState("");
   const [updatingRecordId, setUpdatingRecordId] = useState<string | null>(null);
 
-  const fetchSession = useCallback(async () => {
-    setIsLoading(true);
+  const loadSession = useCallback(async () => {
     const res = await getSessionById(sessionId);
     if (res.success && res.data) {
       setSessionRecord(res.data as SessionDetail);
     } else {
       toast.error(res.error || "Failed to load session details.");
     }
-    setIsLoading(false);
   }, [sessionId]);
 
   useEffect(() => {
-    fetchSession();
-  }, [fetchSession]);
+    let ignore = false;
+    async function init() {
+      setIsLoading(true);
+      await loadSession();
+      if (!ignore) {
+        setIsLoading(false);
+      }
+    }
+    init();
+    return () => {
+      ignore = true;
+    };
+  }, [loadSession]);
 
   const handleStatusChange = async (recordId: string, newStatus: AttendanceStatus, studentName: string) => {
     setUpdatingRecordId(recordId);
     const res = await updateAttendanceRecordStatus(recordId, newStatus, sessionId);
     if (res.success) {
       toast.success(`Updated ${studentName}'s status to ${newStatus}`);
-      fetchSession();
+      await loadSession();
     } else {
       toast.error(res.error || "Failed to update record.");
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, use } from "react";
+import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
@@ -76,47 +76,53 @@ export default function TakeAttendancePage({
   // Map of studentId -> AttendanceStatus (Default to PRESENT)
   const [statusMap, setStatusMap] = useState<Record<string, AttendanceStatus>>({});
 
-  const fetchSubject = useCallback(async () => {
-    setIsLoading(true);
-    const [subRes, todayRes] = await Promise.all([
-      getSubjectForSession(subjectId),
-      getTodaySessionForSubject(subjectId),
-    ]);
-
-    if (subRes.success && subRes.data) {
-      const sub = subRes.data as SubjectDetail;
-      setSubject(sub);
-
-      // Initialize all enrolled students to PRESENT
-      const initialMap: Record<string, AttendanceStatus> = {};
-      sub.enrollments.forEach((e) => {
-        initialMap[e.student.id] = "PRESENT";
-      });
-      setStatusMap(initialMap);
-
-      // Auto-set title default
-      const todayStr = new Date().toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-      setSessionTitle(`Attendance - ${todayStr}`);
-    } else {
-      toast.error(subRes.error || "Failed to load subject for attendance.");
-    }
-
-    if (todayRes.success && todayRes.data) {
-      setTodaySession(todayRes.data as TodaySessionInfo);
-    } else {
-      setTodaySession(null);
-    }
-
-    setIsLoading(false);
-  }, [subjectId]);
-
   useEffect(() => {
-    fetchSubject();
-  }, [fetchSubject]);
+    let ignore = false;
+
+    async function loadData() {
+      const [subRes, todayRes] = await Promise.all([
+        getSubjectForSession(subjectId),
+        getTodaySessionForSubject(subjectId),
+      ]);
+
+      if (ignore) return;
+
+      if (subRes.success && subRes.data) {
+        const sub = subRes.data as SubjectDetail;
+        setSubject(sub);
+
+        // Initialize all enrolled students to PRESENT
+        const initialMap: Record<string, AttendanceStatus> = {};
+        sub.enrollments.forEach((e) => {
+          initialMap[e.student.id] = "PRESENT";
+        });
+        setStatusMap(initialMap);
+
+        // Auto-set title default
+        const todayStr = new Date().toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+        setSessionTitle(`Attendance - ${todayStr}`);
+      } else {
+        toast.error(subRes.error || "Failed to load subject for attendance.");
+      }
+
+      if (todayRes.success && todayRes.data) {
+        setTodaySession(todayRes.data as TodaySessionInfo);
+      } else {
+        setTodaySession(null);
+      }
+
+      setIsLoading(false);
+    }
+
+    loadData();
+    return () => {
+      ignore = true;
+    };
+  }, [subjectId]);
 
   const setSingleStatus = (studentId: string, status: AttendanceStatus) => {
     if (todaySession) return; // Locked if taken today

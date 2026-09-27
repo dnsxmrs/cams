@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import {
   TrendingUp,
@@ -12,7 +11,6 @@ import {
   CheckCircle2,
   Loader2,
   Search,
-  ArrowUpRight,
 } from "lucide-react";
 import { getAttendanceReports } from "@/actions/attendance";
 
@@ -41,91 +39,113 @@ interface SubjectReport {
   rate: number;
 }
 
+type RawSubject = {
+  id: string;
+  code: string;
+  name: string;
+  enrollments: { id: string }[];
+  sessions: {
+    records: { status: string }[];
+  }[];
+};
+
+type RawStudent = {
+  id: string;
+  studentNumber: string;
+  fullName: string;
+  email: string | null;
+  attendances: { status: string }[];
+};
+
 export default function AttendanceReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchStudent, setSearchStudent] = useState("");
   const [subjectReports, setSubjectReports] = useState<SubjectReport[]>([]);
   const [studentReports, setStudentReports] = useState<StudentReport[]>([]);
 
-  const fetchReports = useCallback(async () => {
-    setIsLoading(true);
-    const res = await getAttendanceReports();
-    if (res.success && res.data) {
-      const { subjects, students } = res.data;
-
-      // Process Subject Reports
-      const subRep: SubjectReport[] = subjects.map((sub: any) => {
-        let totalRecords = 0;
-        let presentRecords = 0;
-
-        sub.sessions.forEach((sess: any) => {
-          sess.records.forEach((rec: any) => {
-            totalRecords++;
-            if (rec.status === "PRESENT" || rec.status === "LATE") {
-              presentRecords++;
-            }
-          });
-        });
-
-        const rate = totalRecords > 0 ? Math.round((presentRecords / totalRecords) * 100) : 0;
-
-        return {
-          id: sub.id,
-          code: sub.code,
-          name: sub.name,
-          enrolledCount: sub.enrollments.length,
-          sessionsCount: sub.sessions.length,
-          totalRecords,
-          presentRecords,
-          rate,
-        };
-      });
-
-      // Process Student Reports
-      const stRep: StudentReport[] = students.map((st: any) => {
-        const totalRecorded = st.attendances.length;
-        let presentCount = 0;
-        let absentCount = 0;
-        let lateCount = 0;
-        let excusedCount = 0;
-
-        st.attendances.forEach((att: any) => {
-          if (att.status === "PRESENT") presentCount++;
-          else if (att.status === "ABSENT") absentCount++;
-          else if (att.status === "LATE") lateCount++;
-          else if (att.status === "EXCUSED") excusedCount++;
-        });
-
-        const attended = presentCount + lateCount;
-        const rate = totalRecorded > 0 ? Math.round((attended / totalRecorded) * 100) : 100;
-        const isAtRisk = totalRecorded >= 3 && rate < 80;
-
-        return {
-          id: st.id,
-          studentNumber: st.studentNumber,
-          fullName: st.fullName,
-          email: st.email,
-          totalRecorded,
-          presentCount,
-          absentCount,
-          lateCount,
-          excusedCount,
-          rate,
-          isAtRisk,
-        };
-      });
-
-      setSubjectReports(subRep);
-      setStudentReports(stRep);
-    } else {
-      toast.error(res.error || "Failed to load reports analytics.");
-    }
-    setIsLoading(false);
-  }, []);
-
   useEffect(() => {
-    fetchReports();
-  }, [fetchReports]);
+    let ignore = false;
+    async function loadData() {
+      setIsLoading(true);
+      const res = await getAttendanceReports();
+      if (ignore) return;
+      if (res.success && res.data) {
+        const { subjects, students } = res.data;
+
+        // Process Subject Reports
+        const subRep: SubjectReport[] = (subjects as RawSubject[]).map((sub) => {
+          let totalRecords = 0;
+          let presentRecords = 0;
+
+          sub.sessions.forEach((sess) => {
+            sess.records.forEach((rec) => {
+              totalRecords++;
+              if (rec.status === "PRESENT" || rec.status === "LATE") {
+                presentRecords++;
+              }
+            });
+          });
+
+          const rate = totalRecords > 0 ? Math.round((presentRecords / totalRecords) * 100) : 0;
+
+          return {
+            id: sub.id,
+            code: sub.code,
+            name: sub.name,
+            enrolledCount: sub.enrollments.length,
+            sessionsCount: sub.sessions.length,
+            totalRecords,
+            presentRecords,
+            rate,
+          };
+        });
+
+        // Process Student Reports
+        const stRep: StudentReport[] = (students as RawStudent[]).map((st) => {
+          const totalRecorded = st.attendances.length;
+          let presentCount = 0;
+          let absentCount = 0;
+          let lateCount = 0;
+          let excusedCount = 0;
+
+          st.attendances.forEach((att) => {
+            if (att.status === "PRESENT") presentCount++;
+            else if (att.status === "ABSENT") absentCount++;
+            else if (att.status === "LATE") lateCount++;
+            else if (att.status === "EXCUSED") excusedCount++;
+          });
+
+          const attended = presentCount + lateCount;
+          const rate = totalRecorded > 0 ? Math.round((attended / totalRecorded) * 100) : 100;
+          const isAtRisk = totalRecorded >= 3 && rate < 80;
+
+          return {
+            id: st.id,
+            studentNumber: st.studentNumber,
+            fullName: st.fullName,
+            email: st.email,
+            totalRecorded,
+            presentCount,
+            absentCount,
+            lateCount,
+            excusedCount,
+            rate,
+            isAtRisk,
+          };
+        });
+
+        setSubjectReports(subRep);
+        setStudentReports(stRep);
+      } else {
+        toast.error(res.error || "Failed to load reports analytics.");
+      }
+      setIsLoading(false);
+    }
+    loadData();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const totalSessionsCount = subjectReports.reduce((acc, s) => acc + s.sessionsCount, 0);
   const grandTotalRecords = subjectReports.reduce((acc, s) => acc + s.totalRecords, 0);

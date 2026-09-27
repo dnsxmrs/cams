@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Lock, LogIn, Home } from "lucide-react";
+import { LogIn, Home } from "lucide-react";
 
 export default function Unauthorized() {
   return (

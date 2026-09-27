@@ -8,10 +8,7 @@ import {
   Search,
   BookOpen,
   Loader2,
-  CheckCircle2,
-  XCircle,
   Clock,
-  HelpCircle,
   ArrowRight,
   TrendingUp,
 } from "lucide-react";

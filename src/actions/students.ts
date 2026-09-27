@@ -29,7 +29,7 @@ export async function getStudents(searchQuery?: string) {
     });
 
     return { success: true, data: students };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error fetching students:", error);
     return { success: false, error: "Failed to load students.", data: [] };
   }
@@ -62,9 +62,9 @@ export async function createStudent(input: StudentInput) {
 
     revalidatePath("/students");
     return { success: true, data: student };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error creating student:", error);
-    const errorMsg = error?.errors?.[0]?.message || error.message || "Failed to create student.";
+    const errorMsg = error instanceof Error ? error.message : "Failed to create student.";
     return { success: false, error: errorMsg };
   }
 }
@@ -100,9 +100,9 @@ export async function updateStudent(id: string, input: StudentInput) {
 
     revalidatePath("/students");
     return { success: true, data: student };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error updating student:", error);
-    const errorMsg = error?.errors?.[0]?.message || error.message || "Failed to update student.";
+    const errorMsg = error instanceof Error ? error.message : "Failed to update student.";
     return { success: false, error: errorMsg };
   }
 }
@@ -115,8 +115,9 @@ export async function deleteStudent(id: string) {
 
     revalidatePath("/students");
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error deleting student:", error);
-    return { success: false, error: error.message || "Failed to delete student." };
+    const msg = error instanceof Error ? error.message : "Failed to delete student.";
+    return { success: false, error: msg };
   }
 }
