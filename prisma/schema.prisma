@@ -84,7 +84,9 @@ model TwoFactor {
 model Student {
   id            String             @id @default(uuid())
   studentNumber String             @unique
-  fullName      String
+  lastName      String
+  firstName     String
+  middleInitial String?
   email         String?
   contactInfo   String?
   createdAt     DateTime           @default(now())

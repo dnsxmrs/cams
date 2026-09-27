@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { auth } from "../src/lib/auth";
@@ -127,6 +128,8 @@ async function main() {
   });
   console.log(`✅ Teacher account ready: ${teacher.email} (Password: ${teacherPassword})`);
 
+const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
+
   // ---------------------------------------------------------
   // 2. Global student directory (25 students, so subjects
   //    needing 14-20 have room to draw from a shared pool)
@@ -135,20 +138,23 @@ async function main() {
   console.log(`Creating ${STUDENT_COUNT} students in global directory...`);
 
   const usedNames = new Set<string>();
-  const studentSeeds: { studentNumber: string; fullName: string; email: string; contactInfo: string }[] = [];
+  const studentSeeds: { studentNumber: string; lastName: string; firstName: string; middleInitial?: string; email: string; contactInfo: string }[] = [];
   let n = 1;
   while (studentSeeds.length < STUDENT_COUNT) {
-    const first = pick(FIRST_NAMES);
-    const last = pick(LAST_NAMES);
-    const fullName = `${first} ${last}`;
-    if (usedNames.has(fullName)) continue;
-    usedNames.add(fullName);
+    const firstName = pick(FIRST_NAMES);
+    const lastName = pick(LAST_NAMES);
+    const middleInitial = n % 3 === 0 ? pick(MIDDLE_INITIALS) : undefined;
+    const nameKey = `${lastName}-${firstName}-${middleInitial || ""}`;
+    if (usedNames.has(nameKey)) continue;
+    usedNames.add(nameKey);
 
     const num = String(n).padStart(3, "0");
     studentSeeds.push({
       studentNumber: `STU-2026-${num}`,
-      fullName,
-      email: `${first.toLowerCase()}.${last.toLowerCase()}${n}@student.edu`,
+      lastName,
+      firstName,
+      middleInitial,
+      email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}${n}@student.edu`,
       contactInfo: `+63 9${randomInt(100000000, 999999999)}`,
     });
     n++;
@@ -158,7 +164,7 @@ async function main() {
   for (const s of studentSeeds) {
     const student = await prisma.student.upsert({
       where: { studentNumber: s.studentNumber },
-      update: { fullName: s.fullName, email: s.email, contactInfo: s.contactInfo },
+      update: { lastName: s.lastName, firstName: s.firstName, middleInitial: s.middleInitial, email: s.email, contactInfo: s.contactInfo },
       create: s,
     });
     createdStudents.push(student);
