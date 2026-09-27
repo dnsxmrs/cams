@@ -47,6 +47,12 @@ export default function LoginPage() {
           error.message || error.statusText || "Failed to log in. Please check your credentials.";
         setServerError(errorMsg);
         toast.error(errorMsg);
+
+        if (errorMsg.toLowerCase().includes("verify") || errorMsg.toLowerCase().includes("email")) {
+          setTimeout(() => {
+            router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+          }, 2000);
+        }
       } else {
         toast.success("Logged in successfully!");
         router.push("/subjects");

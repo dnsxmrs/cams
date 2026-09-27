@@ -56,9 +56,14 @@ export default function SignUpPage() {
         setServerError(errorMsg);
         toast.error(errorMsg);
       } else {
-        toast.success("Account created successfully!");
-        router.push("/subjects");
-        router.refresh();
+        // Automatically request verification OTP as well
+        authClient.emailOtp.sendVerificationOtp({
+          email,
+          type: "email-verification",
+        }).catch(() => {});
+
+        toast.success("Account created! Please check your email for the verification link or 6-digit OTP code.");
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
       }
     } catch (err: any) {
       const errorMsg =
