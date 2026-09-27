@@ -4,6 +4,24 @@ import { prisma } from "@/lib/prisma";
 import { studentSchema, StudentInput } from "@/lib/validations";
 import { revalidatePath } from "next/cache";
 
+function validationError(error: unknown, fallback: string) {
+  if (error instanceof Error && error.name === "ZodError") {
+    const issues = JSON.parse(error.message) as Array<{ message?: string }>;
+    return issues.map((issue) => issue.message).filter(Boolean).join(" ") || fallback;
+  }
+  return fallback;
+}
+
+function databaseError(error: unknown, fallback: string) {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = (error as { code?: string }).code;
+    if (code === "P2025") return "The student no longer exists. Refresh the directory and try again.";
+    if (code === "P2003") return "This student cannot be deleted because related records still exist.";
+    if (code === "P2002") return "That student number is already in use.";
+  }
+  return fallback;
+}
+
 export async function getStudents(searchQuery?: string) {
   try {
     const query = searchQuery?.trim();
@@ -37,7 +55,9 @@ export async function getStudents(searchQuery?: string) {
 
 export async function createStudent(input: StudentInput) {
   try {
-    const validated = studentSchema.parse(input);
+    const parsed = studentSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message || "Invalid student details." };
+    const validated = parsed.data;
 
     // Check for unique student number
     const existing = await prisma.student.findUnique({
@@ -64,16 +84,37 @@ export async function createStudent(input: StudentInput) {
     return { success: true, data: student };
   } catch (error: unknown) {
     console.error("Error creating student:", error);
-    const errorMsg = error instanceof Error ? error.message : "Failed to create student.";
-    return { success: false, error: errorMsg };
+    return { success: false, error: databaseError(error, validationError(error, "Failed to create student.")) };
   }
 }
 
 export async function importStudents(inputs: StudentInput[]) {
   try {
-    const validated = inputs.map((input) => studentSchema.parse(input));
+    if (!Array.isArray(inputs) || inputs.length === 0) {
+      return { success: false, error: "The CSV file contains no student rows." };
+    }
+
+    const validStudents: StudentInput[] = [];
+    const invalidRows: string[] = [];
+    inputs.forEach((input, index) => {
+      const parsed = studentSchema.safeParse(input);
+      if (parsed.success) {
+        validStudents.push(parsed.data);
+      } else {
+        invalidRows.push(`Row ${index + 2}: ${parsed.error.issues[0]?.message || "invalid student details"}`);
+      }
+    });
+
+    const uniqueStudents = Array.from(
+      new Map(validStudents.map((student) => [student.studentNumber.toLowerCase(), student])).values()
+    );
+    const duplicateRows = validStudents.length - uniqueStudents.length;
+    if (uniqueStudents.length === 0) {
+      return { success: false, error: invalidRows.slice(0, 3).join(" ") || "No valid student rows found." };
+    }
+
     const result = await prisma.student.createMany({
-      data: validated.map((student) => ({
+      data: uniqueStudents.map((student) => ({
         studentNumber: student.studentNumber,
         fullName: student.fullName,
         email: student.email || null,
@@ -86,18 +127,21 @@ export async function importStudents(inputs: StudentInput[]) {
     return {
       success: true,
       imported: result.count,
-      skipped: validated.length - result.count,
+      skipped: uniqueStudents.length - result.count + duplicateRows,
+      invalidRows: invalidRows.slice(0, 5),
     };
   } catch (error: unknown) {
     console.error("Error importing students:", error);
-    const errorMsg = error instanceof Error ? error.message : "Failed to import students.";
-    return { success: false, error: errorMsg };
+    return { success: false, error: databaseError(error, "Failed to import students.") };
   }
 }
 
 export async function updateStudent(id: string, input: StudentInput) {
   try {
-    const validated = studentSchema.parse(input);
+    if (!id) return { success: false, error: "Student ID is required." };
+    const parsed = studentSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message || "Invalid student details." };
+    const validated = parsed.data;
 
     // Check if another student uses this student number
     const existing = await prisma.student.findFirst({
@@ -128,13 +172,13 @@ export async function updateStudent(id: string, input: StudentInput) {
     return { success: true, data: student };
   } catch (error: unknown) {
     console.error("Error updating student:", error);
-    const errorMsg = error instanceof Error ? error.message : "Failed to update student.";
-    return { success: false, error: errorMsg };
+    return { success: false, error: databaseError(error, "Failed to update student.") };
   }
 }
 
 export async function deleteStudent(id: string) {
   try {
+    if (!id) return { success: false, error: "Student ID is required." };
     await prisma.student.delete({
       where: { id },
     });
@@ -143,7 +187,6 @@ export async function deleteStudent(id: string) {
     return { success: true };
   } catch (error: unknown) {
     console.error("Error deleting student:", error);
-    const msg = error instanceof Error ? error.message : "Failed to delete student.";
-    return { success: false, error: msg };
+    return { success: false, error: databaseError(error, "Failed to delete student.") };
   }
 }
