@@ -69,34 +69,43 @@ export default function LoginPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-4 text-slate-100 relative overflow-hidden">
-      {/* Background Subtle Ambient Glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-600/15 blur-3xl rounded-full pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-80 h-80 bg-indigo-600/10 blur-3xl rounded-full pointer-events-none" />
+  const handleForgotPassword = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (email.trim()) {
+      router.push(`/forgot-password?email=${encodeURIComponent(email.trim())}`);
+    } else {
+      router.push("/forgot-password");
+    }
+  };
 
-      <div className="w-full max-w-md bg-slate-900/90 backdrop-blur-md border border-slate-800 p-8 rounded-3xl shadow-2xl space-y-6 relative z-10">
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50/70 p-4 text-slate-800 relative overflow-hidden [color-scheme:light]">
+      {/* Background Soft Glows */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-400/10 blur-3xl rounded-full pointer-events-none" />
+      <div className="absolute bottom-10 right-10 w-80 h-80 bg-indigo-300/15 blur-3xl rounded-full pointer-events-none" />
+
+      <div className="w-full max-w-md bg-white border border-slate-200/90 p-8 rounded-3xl shadow-xl space-y-6 relative z-10">
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600/10 border border-blue-500/20 text-blue-400 font-extrabold text-2xl mb-1 shadow-inner">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 text-blue-600 font-extrabold text-2xl mb-1 shadow-xs">
             CAMS
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Teacher Login</h1>
-          <p className="text-xs text-slate-400">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Teacher Login</h1>
+          <p className="text-xs text-slate-500">
             Sign in to manage your subjects, student rosters, and attendance sessions
           </p>
         </div>
 
         {/* Server Error Alert Banner */}
         {serverError && (
-          <div className="p-3.5 bg-red-950/60 border border-red-800/80 rounded-2xl text-xs font-semibold text-red-300 flex items-start gap-2.5 animate-in fade-in duration-150">
-            <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+          <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-xs font-semibold text-red-700 flex items-start gap-2.5 animate-in fade-in duration-150">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
             <div className="flex-1 leading-snug">
               <span>{serverError}</span>
             </div>
             <button
               type="button"
               onClick={() => setServerError(null)}
-              className="text-red-400 hover:text-red-200 p-0.5 rounded-md hover:bg-red-900/50 transition-colors"
+              className="text-red-500 hover:text-red-800 p-0.5 rounded-md hover:bg-red-100 transition-colors cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -104,8 +113,9 @@ export default function LoginPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Email Address */}
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
               Email Address
             </label>
             <div className="relative">
@@ -114,36 +124,46 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="teacher@school.edu"
-                className={`w-full pl-10 pr-4 py-3 bg-slate-800/80 border ${
-                  errors.email ? "border-red-500 focus:ring-red-500" : "border-slate-700/80 focus:ring-blue-500 focus:border-blue-500"
-                } rounded-xl text-sm focus:outline-none focus:ring-2 text-white placeholder-slate-500 transition-all duration-200`}
+                className={`w-full pl-10 pr-4 py-3 bg-slate-50/80 border ${
+                  errors.email ? "border-red-500 focus:ring-red-500" : "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                } rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white text-slate-900 placeholder-slate-400 transition-all duration-200`}
               />
-              <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             </div>
             {errors.email && (
-              <p className="text-xs text-red-400 mt-1.5 font-medium">{errors.email}</p>
+              <p className="text-xs text-red-500 mt-1.5 font-medium">{errors.email}</p>
             )}
           </div>
 
+          {/* Password Field */}
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-              Password
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                Password
+              </label>
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="text-[11px] font-bold text-blue-600 hover:text-blue-700 hover:underline transition-colors cursor-pointer"
+              >
+                Forgot Password?
+              </button>
+            </div>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className={`w-full pl-10 pr-11 py-3 bg-slate-800/80 border ${
-                  errors.password ? "border-red-500 focus:ring-red-500" : "border-slate-700/80 focus:ring-blue-500 focus:border-blue-500"
-                } rounded-xl text-sm focus:outline-none focus:ring-2 text-white placeholder-slate-500 transition-all duration-200`}
+                className={`w-full pl-10 pr-11 py-3 bg-slate-50/80 border ${
+                  errors.password ? "border-red-500 focus:ring-red-500" : "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                } rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white text-slate-900 placeholder-slate-400 transition-all duration-200`}
               />
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 rounded-lg transition-colors cursor-pointer"
                 title={showPassword ? "Hide password" : "Show password"}
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
@@ -151,14 +171,14 @@ export default function LoginPage() {
               </button>
             </div>
             {errors.password && (
-              <p className="text-xs text-red-400 mt-1.5 font-medium">{errors.password}</p>
+              <p className="text-xs text-red-500 mt-1.5 font-medium">{errors.password}</p>
             )}
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-500 active:scale-[0.99] font-bold text-sm text-white rounded-xl shadow-lg shadow-blue-600/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2 cursor-pointer"
+            className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] font-bold text-sm text-white rounded-xl shadow-lg shadow-blue-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2 cursor-pointer"
           >
             {isLoading ? (
               <>
@@ -193,11 +213,11 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="pt-4 border-t border-slate-800/80 text-center text-xs text-slate-400">
+        <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-500">
           Don&apos;t have a teacher account?{" "}
           <Link
             href="/signup"
-            className="text-blue-400 hover:text-blue-300 font-bold transition-colors duration-200 hover:underline"
+            className="text-blue-600 hover:text-blue-700 font-bold transition-colors duration-200 hover:underline"
           >
             Create an account
           </Link>
