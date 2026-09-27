@@ -1,0 +1,413 @@
+"use client";
+
+import { useState, useEffect, useMemo, use } from "react";
+import Link from "next/link";
+import { toast } from "react-hot-toast";
+import {
+  ArrowLeft,
+  Loader2,
+  BookOpen,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  HelpCircle,
+  AlertCircle,
+  Mail,
+  Phone,
+  History,
+  Download,
+  Calendar,
+} from "lucide-react";
+import { getStudentAttendanceHistory } from "@/actions/students";
+import { formatStudentName } from "@/lib/student";
+import Pagination from "@/app/components/Pagination";
+
+type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
+
+interface AttendanceRecordDetail {
+  id: string;
+  status: AttendanceStatus;
+  updatedAt: Date;
+  session: {
+    id: string;
+    sessionDate: Date;
+    title: string | null;
+    subject: {
+      id: string;
+      code: string;
+      name: string;
+      color: string | null;
+    };
+  };
+}
+
+interface EnrollmentDetail {
+  id: string;
+  subject: {
+    id: string;
+    code: string;
+    name: string;
+  };
+}
+
+interface StudentHistoryData {
+  id: string;
+  studentNumber: string;
+  lastName: string;
+  firstName: string;
+  middleInitial: string | null;
+  email: string | null;
+  contactInfo: string | null;
+  attendances: AttendanceRecordDetail[];
+  enrollments: EnrollmentDetail[];
+}
+
+function escapeCsvValue(value: string | number | null | undefined) {
+  return `"${String(value ?? "").replace(/"/g, '""')}"`;
+}
+
+export default function StudentAttendanceHistoryPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id: studentId } = use(params);
+
+  const [studentData, setStudentData] = useState<StudentHistoryData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>("ALL");
+  const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    if (!studentId) return;
+    let ignore = false;
+
+    async function loadData() {
+      setIsLoading(true);
+      const res = await getStudentAttendanceHistory(studentId);
+      if (ignore) return;
+      if (res.success && res.data) {
+        setStudentData(res.data as unknown as StudentHistoryData);
+      } else {
+        toast.error(res.error || "Failed to load student attendance history.");
+      }
+      setIsLoading(false);
+    }
+
+    loadData();
+    return () => {
+      ignore = true;
+    };
+  }, [studentId]);
+
+  // Aggregate Stats
+  const stats = useMemo(() => {
+    if (!studentData) return { total: 0, present: 0, absent: 0, late: 0, excused: 0, rate: 0, isAtRisk: false };
+
+    const total = studentData.attendances.length;
+    let present = 0;
+    let absent = 0;
+    let late = 0;
+    let excused = 0;
+
+    studentData.attendances.forEach((rec) => {
+      if (rec.status === "PRESENT") present++;
+      else if (rec.status === "ABSENT") absent++;
+      else if (rec.status === "LATE") late++;
+      else if (rec.status === "EXCUSED") excused++;
+    });
+
+    const attended = present + late;
+    const rate = total > 0 ? Math.round((attended / total) * 100) : 100;
+    const isAtRisk = total >= 3 && rate < 80;
+
+    return { total, present, absent, late, excused, rate, isAtRisk };
+  }, [studentData]);
+
+  // Filtered Records
+  const filteredRecords = useMemo(() => {
+    if (!studentData) return [];
+
+    return studentData.attendances.filter((rec) => {
+      const matchesSubject = selectedSubjectId === "ALL" || rec.session.subject.id === selectedSubjectId;
+      const matchesStatus = selectedStatus === "ALL" || rec.status === selectedStatus;
+      return matchesSubject && matchesStatus;
+    });
+  }, [studentData, selectedSubjectId, selectedStatus]);
+
+  const visibleRecords = useMemo(() => {
+    return filteredRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  }, [filteredRecords, currentPage, pageSize]);
+
+  function handleExportCsv() {
+    if (!studentData || filteredRecords.length === 0) return;
+
+    const headers = ["Student ID", "Student Name", "Subject Code", "Subject Name", "Session Title", "Session Date", "Status"];
+
+    const rows = filteredRecords.map((rec) => [
+      escapeCsvValue(studentData.studentNumber),
+      escapeCsvValue(formatStudentName(studentData)),
+      escapeCsvValue(rec.session.subject.code),
+      escapeCsvValue(rec.session.subject.name),
+      escapeCsvValue(rec.session.title || "Roll Call Session"),
+      escapeCsvValue(new Date(rec.session.sessionDate).toLocaleString()),
+      escapeCsvValue(rec.status),
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const sanitizedName = formatStudentName(studentData).replace(/[^a-zA-Z0-9_-]/g, "_");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${sanitizedName}_Attendance_History.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  function renderStatusBadge(status: AttendanceStatus) {
+    switch (status) {
+      case "PRESENT":
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+            <CheckCircle2 className="w-3.5 h-3.5" /> Present
+          </span>
+        );
+      case "ABSENT":
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
+            <XCircle className="w-3.5 h-3.5" /> Absent
+          </span>
+        );
+      case "LATE":
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+            <Clock className="w-3.5 h-3.5" /> Late
+          </span>
+        );
+      case "EXCUSED":
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+            <HelpCircle className="w-3.5 h-3.5" /> Excused
+          </span>
+        );
+    }
+  }
+
+  return (
+    <div className="space-y-6 pb-16">
+      {/* Top Header & Navigation */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/students"
+            className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
+            title="Back to Students"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                {studentData ? formatStudentName(studentData) : "Student Attendance History"}
+              </h1>
+              {studentData && (
+                <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  {studentData.studentNumber}
+                </span>
+              )}
+            </div>
+            {studentData && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-4">
+                {studentData.email && (
+                  <span className="inline-flex items-center gap-1">
+                    <Mail className="w-3.5 h-3.5 text-slate-400" /> {studentData.email}
+                  </span>
+                )}
+                {studentData.contactInfo && (
+                  <span className="inline-flex items-center gap-1">
+                    <Phone className="w-3.5 h-3.5 text-slate-400" /> {studentData.contactInfo}
+                  </span>
+                )}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-16 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2 shadow-xs">
+          <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400" />
+          <p>Fetching student attendance records...</p>
+        </div>
+      ) : !studentData ? (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-16 text-center text-slate-500 dark:text-slate-400 text-xs shadow-xs">
+          <AlertCircle className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+          <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">Failed to load history</p>
+          <p className="mt-1">Student not found or no attendance records available.</p>
+        </div>
+      ) : (
+        <>
+          {/* Summary Stats Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-4 rounded-2xl shadow-2xs">
+              <span className="text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Total Logged</span>
+              <p className="mt-1 text-xl font-extrabold text-slate-900 dark:text-white">{stats.total}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-4 rounded-2xl shadow-2xs">
+              <span className="text-[10px] font-semibold uppercase text-emerald-600 dark:text-emerald-400">Present</span>
+              <p className="mt-1 text-xl font-extrabold text-emerald-700 dark:text-emerald-400">{stats.present}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-4 rounded-2xl shadow-2xs">
+              <span className="text-[10px] font-semibold uppercase text-red-600 dark:text-red-400">Absent</span>
+              <p className="mt-1 text-xl font-extrabold text-red-700 dark:text-red-400">{stats.absent}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-4 rounded-2xl shadow-2xs">
+              <span className="text-[10px] font-semibold uppercase text-amber-600 dark:text-amber-400">Late</span>
+              <p className="mt-1 text-xl font-extrabold text-amber-700 dark:text-amber-400">{stats.late}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-4 rounded-2xl shadow-2xs">
+              <span className="text-[10px] font-semibold uppercase text-blue-600 dark:text-blue-400">Excused</span>
+              <p className="mt-1 text-xl font-extrabold text-blue-700 dark:text-blue-400">{stats.excused}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-4 rounded-2xl shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Attendance Rate</span>
+                {stats.isAtRisk && <span className="text-[10px] font-bold text-red-600 dark:text-red-400">At Risk</span>}
+              </div>
+              <p className={`mt-1 text-xl font-extrabold ${stats.isAtRisk ? "text-red-600 dark:text-red-400" : "text-slate-900 dark:text-white"}`}>
+                {stats.rate}%
+              </p>
+            </div>
+          </div>
+
+          {/* Controls & Filter Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+            <div className="flex items-center gap-2.5 flex-wrap text-xs">
+              {/* Subject Dropdown */}
+              <select
+                value={selectedSubjectId}
+                onChange={(e) => {
+                  setSelectedSubjectId(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer"
+              >
+                <option value="ALL">All Subjects ({studentData.enrollments.length})</option>
+                {studentData.enrollments.map((e) => (
+                  <option key={e.subject.id} value={e.subject.id}>
+                    {e.subject.code} - {e.subject.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Status Dropdown */}
+              <select
+                value={selectedStatus}
+                onChange={(e) => {
+                  setSelectedStatus(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="PRESENT">PRESENT</option>
+                <option value="ABSENT">ABSENT</option>
+                <option value="LATE">LATE</option>
+                <option value="EXCUSED">EXCUSED</option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={filteredRecords.length === 0}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200 cursor-pointer"
+              title="Export filtered attendance as CSV"
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </button>
+          </div>
+
+          {/* History Table */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
+            {visibleRecords.length === 0 ? (
+              <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-xs">
+                <History className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">No attendance records found</p>
+                <p className="mt-0.5">Try adjusting your subject or status filters.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[700px]">
+                  <thead>
+                    <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                      <th className="py-3.5 px-4">Subject</th>
+                      <th className="py-3.5 px-4">Session Title & Date</th>
+                      <th className="py-3.5 px-4 text-center">Status</th>
+                      <th className="py-3.5 px-4 text-right">Recorded Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                    {visibleRecords.map((rec) => (
+                      <tr key={rec.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                        <td className="py-3.5 px-4">
+                          <span className="px-2 py-0.5 rounded-md text-xs font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                            {rec.session.subject.code}
+                          </span>
+                          <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 mt-1">
+                            {rec.session.subject.name}
+                          </p>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <h2 className="font-bold text-slate-900 dark:text-white">
+                            {rec.session.title || "Roll Call Session"}
+                          </h2>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-slate-400" />
+                            {new Date(rec.session.sessionDate).toLocaleDateString(undefined, {
+                              weekday: "short",
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </td>
+
+                        <td className="py-3.5 px-4 text-center">
+                          {renderStatusBadge(rec.status)}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                          {new Date(rec.updatedAt).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <Pagination
+                  page={currentPage}
+                  pageSize={pageSize}
+                  totalItems={filteredRecords.length}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setCurrentPage(1);
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

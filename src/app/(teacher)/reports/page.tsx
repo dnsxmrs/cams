@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { toast } from "react-hot-toast";
 import {
   TrendingUp,
@@ -11,6 +12,7 @@ import {
   CheckCircle2,
   Loader2,
   Search,
+  History,
 } from "lucide-react";
 import { getAttendanceReports } from "@/actions/attendance";
 import Pagination from "@/app/components/Pagination";
@@ -67,6 +69,7 @@ type RawStudent = {
 export default function AttendanceReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchStudent, setSearchStudent] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "AT_RISK" | "GOOD_STANDING">("ALL");
   const [subjectReports, setSubjectReports] = useState<SubjectReport[]>([]);
   const [studentReports, setStudentReports] = useState<StudentReport[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -145,6 +148,8 @@ export default function AttendanceReportsPage() {
           };
         });
 
+        stRep.sort((a, b) => formatStudentName(a).localeCompare(formatStudentName(b)));
+
         setSubjectReports(subRep);
         setStudentReports(stRep);
       } else {
@@ -164,22 +169,29 @@ export default function AttendanceReportsPage() {
   const overallRate = grandTotalRecords > 0 ? Math.round((grandPresentRecords / grandTotalRecords) * 100) : 0;
   const atRiskCount = studentReports.filter((st) => st.isAtRisk).length;
 
-  const filteredStudents = studentReports.filter(
-    (st) =>
+  const filteredStudents = studentReports.filter((st) => {
+    const matchesSearch =
       formatStudentName(st).toLowerCase().includes(searchStudent.toLowerCase()) ||
       st.studentNumber.toLowerCase().includes(searchStudent.toLowerCase()) ||
-      (st.email && st.email.toLowerCase().includes(searchStudent.toLowerCase()))
-  );
+      (st.email && st.email.toLowerCase().includes(searchStudent.toLowerCase()));
+
+    const matchesStatus =
+      statusFilter === "ALL" ||
+      (statusFilter === "AT_RISK" && st.isAtRisk) ||
+      (statusFilter === "GOOD_STANDING" && !st.isAtRisk);
+
+    return matchesSearch && matchesStatus;
+  });
   const visibleStudents = filteredStudents.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-16">
+    <div className="space-y-6 pb-16">
       {/* Header Banner */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-xs font-bold mb-2 border border-purple-200 dark:border-purple-800">
+          {/* <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-xs font-bold mb-2 border border-purple-200 dark:border-purple-800">
             <TrendingUp className="w-3.5 h-3.5" /> Summary Analytics
-          </div>
+          </div> */}
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
             Attendance Reports & Analytics
           </h1>
@@ -321,18 +333,33 @@ export default function AttendanceReportsPage() {
             <p className="text-xs text-slate-500 dark:text-slate-400">Individual student attendance percentages and risk status</p>
           </div>
 
-          <div className="relative w-full sm:w-64">
-            <input
-              type="text"
-              placeholder="Search student..."
-              value={searchStudent}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+            <select
+              value={statusFilter}
               onChange={(e) => {
-                setSearchStudent(e.target.value);
+                setStatusFilter(e.target.value as "ALL" | "AT_RISK" | "GOOD_STANDING");
                 setCurrentPage(1);
               }}
-              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none transition-all"
-            />
-            <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-2.5 top-2" />
+              className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer"
+            >
+              <option value="ALL">All Statuses ({studentReports.length})</option>
+              <option value="AT_RISK">At Risk (&lt;80%) ({atRiskCount})</option>
+              <option value="GOOD_STANDING">Good Standing ({studentReports.length - atRiskCount})</option>
+            </select>
+
+            <div className="relative w-full sm:w-64">
+              <input
+                type="text"
+                placeholder="Search student..."
+                value={searchStudent}
+                onChange={(e) => {
+                  setSearchStudent(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none transition-all"
+              />
+              <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-2.5 top-2" />
+            </div>
           </div>
         </div>
 
@@ -351,7 +378,8 @@ export default function AttendanceReportsPage() {
                   <th className="py-3.5 px-4">Total Logged</th>
                   <th className="py-3.5 px-4">Present / Absent</th>
                   <th className="py-3.5 px-4">Attendance Rate</th>
-                  <th className="py-3.5 px-4 text-right">Status</th>
+                  <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
@@ -374,16 +402,24 @@ export default function AttendanceReportsPage() {
                     <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
                       {st.rate}%
                     </td>
-                    <td className="py-3.5 px-4 text-right">
+                    <td className="py-3.5 px-4">
                       {st.isAtRisk ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[10px] font-bold">
-                          <AlertTriangle className="w-3 h-3" /> At Risk (&lt;80%)
+                        <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 font-bold">
+                          <AlertTriangle className="w-3.5 h-3.5" /> At Risk (&lt;80%)
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold">
-                          <CheckCircle2 className="w-3 h-3" /> Good Standing
+                        <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-bold">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Good Standing
                         </span>
                       )}
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <Link
+                        href={`/students/${st.id}/history`}
+                        className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <History className="w-3.5 h-3.5" /> History
+                      </Link>
                     </td>
                   </tr>
                 ))}
@@ -402,7 +438,11 @@ export default function AttendanceReportsPage() {
           </div>
         ) : (
           <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-xs">
-            <p>No student records match search criteria.</p>
+            <p>
+              {searchStudent || statusFilter !== "ALL"
+                ? "No student records match filter criteria."
+                : "No student records found."}
+            </p>
           </div>
         )}
       </div>

@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 import { studentSchema, StudentInput } from "@/lib/validations";
 import { revalidatePath } from "next/cache";
 
@@ -198,5 +199,61 @@ export async function deleteStudent(id: string) {
   } catch (error: unknown) {
     console.error("Error deleting student:", error);
     return { success: false, error: databaseError(error, "Failed to delete student.") };
+  }
+}
+
+export async function getStudentAttendanceHistory(studentId: string) {
+  try {
+    const authSession = await getSession();
+    if (!authSession || !authSession.user) {
+      return { success: false, error: "Unauthorized access.", data: null };
+    }
+    const teacherId = authSession.user.id;
+
+    const student = await prisma.student.findUnique({
+      where: { id: studentId },
+      include: {
+        attendances: {
+          where: {
+            session: {
+              subject: {
+                teacherId,
+              },
+            },
+          },
+          include: {
+            session: {
+              include: {
+                subject: true,
+              },
+            },
+          },
+          orderBy: {
+            session: {
+              sessionDate: "desc",
+            },
+          },
+        },
+        enrollments: {
+          where: {
+            subject: {
+              teacherId,
+            },
+          },
+          include: {
+            subject: true,
+          },
+        },
+      },
+    });
+
+    if (!student) {
+      return { success: false, error: "Student not found.", data: null };
+    }
+
+    return { success: true, data: student };
+  } catch (error: unknown) {
+    console.error("Error fetching student attendance history:", error);
+    return { success: false, error: "Failed to load student attendance history.", data: null };
   }
 }
