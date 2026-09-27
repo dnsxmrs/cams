@@ -27,7 +27,9 @@ export const signUpSchema = z
 // Student Schemas
 export const studentSchema = z.object({
   studentNumber: z.string().trim().min(1, "Student number is required").max(50, "Student number is too long"),
-  fullName: z.string().trim().min(2, "Full name must be at least 2 characters").max(120, "Full name is too long"),
+  lastName: z.string().trim().min(1, "Last name is required").max(60, "Last name is too long"),
+  firstName: z.string().trim().min(1, "First name is required").max(60, "First name is too long"),
+  middleInitial: z.string().trim().max(10, "Middle initial is too long").optional().or(z.literal("")),
   email: z.string().trim().email("Invalid email address").max(254, "Email address is too long").optional().or(z.literal("")),
   contactInfo: z.string().trim().max(50, "Contact information is too long").optional(),
 });
