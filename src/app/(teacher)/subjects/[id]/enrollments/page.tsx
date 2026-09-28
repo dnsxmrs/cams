@@ -91,11 +91,11 @@ export default function SubjectEnrollmentsPage({
 
   const fetchRoster = useCallback(async () => {
     const res = await getSubjectEnrollments(subjectId);
-    if (res.success && res.data) {
+    if (res?.success && res?.data) {
       setSubject(res.data as SubjectDetail);
       setCurrentPage(1);
     } else {
-      toast.error(res.error || "Failed to load subject details.");
+      toast.error(res?.error || "Failed to load subject details.");
     }
     setIsLoading(false);
   }, [subjectId]);
@@ -105,10 +105,10 @@ export default function SubjectEnrollmentsPage({
     async function loadRoster() {
       const res = await getSubjectEnrollments(subjectId);
       if (!ignore) {
-        if (res.success && res.data) {
+        if (res?.success && res?.data) {
           setSubject(res.data as SubjectDetail);
         } else {
-          toast.error(res.error || "Failed to load subject details.");
+          toast.error(res?.error || "Failed to load subject details.");
         }
         setIsLoading(false);
       }
@@ -126,7 +126,7 @@ export default function SubjectEnrollmentsPage({
       setIsLoadingAvailable(true);
       const res = await getAvailableStudentsForSubject(subjectId, availableSearch);
       if (!ignore) {
-        if (res.success && res.data) {
+        if (res?.success && res?.data) {
           setAvailableStudents(res.data as Student[]);
         }
         setIsLoadingAvailable(false);

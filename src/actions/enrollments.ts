@@ -67,7 +67,7 @@ export async function getSubjectEnrollments(subjectId: string) {
     return { success: true, data: subject };
   } catch (error: unknown) {
     console.error("Error fetching subject enrollments:", error);
-    return { success: false, error: "Failed to load subject enrollments.", data: null };
+    // return { success: false, error: "Failed to load subject enrollments.", data: null };
   }
 }
 
