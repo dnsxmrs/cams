@@ -195,21 +195,22 @@ export default function SubjectEnrollmentsPage({
           Row 1: SUBJECT NAME - SUBJECT CODE | ADD STUDENT BUTTON
           Row 2: SCHEDULE - STUDENT ENROLLED
       */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-3">
+      {/* HEADER BANNER - Compact design */}
+      <div className="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-2">
         {/* Row 1: Subject Name - Subject Code | Add Student Button */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           {isLoading ? (
-            <div className="flex items-center gap-2.5">
-              <div className="h-7 w-48 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
-              <div className="h-6 w-20 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
+            <div className="flex items-center gap-2">
+              <div className="h-6 w-40 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
+              <div className="h-5 w-16 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
             </div>
           ) : (
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
                 {subject?.name || "Subject Roster"}
               </h1>
               {subject?.code && (
-                <span className="px-3 py-1 rounded-lg text-xs font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                   {subject.code}
                 </span>
               )}
@@ -219,17 +220,17 @@ export default function SubjectEnrollmentsPage({
 
         {/* Row 2: Schedule - Student Enrolled */}
         {isLoading ? (
-          <div className="flex items-center gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <div className="h-4 w-44 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
-            <div className="h-4 w-28 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+          <div className="flex items-center gap-3 pt-1.5 border-t border-slate-100 dark:border-slate-800">
+            <div className="h-3.5 w-36 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+            <div className="h-3.5 w-24 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
           </div>
         ) : (
-          <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500 dark:text-slate-400 pt-1.5 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs">
               <span>{formatSchedulesDisplay(subject?.schedules, subject?.description)}</span>
             </div>
             <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
-            <div className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
+            <div className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300 text-[11px] sm:text-xs">
               <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               <span>{subject?.enrollments.length || 0} Students Enrolled</span>
             </div>
@@ -239,7 +240,7 @@ export default function SubjectEnrollmentsPage({
 
       {/* Roster Search and Results */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-slate-200/90 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="p-3 sm:p-3.5 border-b border-slate-200/90 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
             <input
               type="text"
@@ -249,25 +250,25 @@ export default function SubjectEnrollmentsPage({
                 setRosterSearch(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none transition-all"
+              className="w-full pl-9 pr-3.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 text-slate-900 dark:text-white focus:outline-none transition-all"
             />
-            <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2" />
           </div>
 
           <button
             onClick={() => setIsEnrollModalOpen(true)}
             disabled={isLoading}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer self-start sm:self-auto"
+            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
           >
-            <UserPlus className="w-4 h-4" /> Enroll Students
+            <UserPlus className="w-3.5 h-3.5" /> Enroll Students
           </button>
         </div>
 
         {/* Roster Display Section */}
-        <div className="space-y-4 p-4">
+        <div className="space-y-3 p-3 sm:p-4">
         {isLoading ? (
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-12 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400" />
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-8 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+            <Loader2 className="w-5 h-5 animate-spin text-blue-600 dark:text-blue-400" />
             <p>Loading subject roster...</p>
           </div>
         ) : filteredEnrollments && filteredEnrollments.length > 0 ? (
@@ -275,36 +276,32 @@ export default function SubjectEnrollmentsPage({
             {/* DESKTOP TABLE VIEW (hidden on mobile, visible on md+) */}
             <div className="hidden md:block overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[600px]">
+                <table className="w-full text-left border-collapse min-w-[500px]">
                   <thead>
-                    <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                      <th className="py-3.5 px-4">Student ID</th>
-                      <th className="py-3.5 px-4">Full Name</th>
-                      {/* <th className="py-3.5 px-4">Email</th> */}
-                      <th className="py-3.5 px-4">Contact</th>
-                      <th className="py-3.5 px-4">Enrolled Date</th>
-                      <th className="py-3.5 px-4 text-right">Actions</th>
+                    <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-[11px] font-bold uppercase tracking-wider">
+                      <th className="py-2.5 px-3">Student ID</th>
+                      <th className="py-2.5 px-3">Full Name</th>
+                      <th className="py-2.5 px-3">Enrolled Date</th>
+                      <th className="py-2.5 px-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                     {visibleEnrollments.map((item) => (
                       <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                        <td className="py-3.5 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">
+                        <td className="py-2.5 px-3 font-mono font-bold text-blue-600 dark:text-blue-400">
                           {item.student.studentNumber}
                         </td>
-                        <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                        <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">
                           {formatStudentName(item.student)}
                         </td>
-                        {/* <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{item.student.email || "—"}</td> */}
-                        <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">{item.student.contactInfo || "—"}</td>
-                        <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 font-medium">
+                        <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400 font-medium text-[11px]">
                           {new Date(item.enrolledAt).toLocaleDateString(undefined, {
                             year: "numeric",
                             month: "short",
                             day: "numeric",
                           })}
                         </td>
-                        <td className="py-3.5 px-4 text-right">
+                        <td className="py-2.5 px-3 text-right">
                           <button
                             onClick={() => setUnenrollingStudent(item.student)}
                             className="text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 inline-flex items-center gap-1 transition-colors cursor-pointer"
@@ -319,53 +316,40 @@ export default function SubjectEnrollmentsPage({
               </div>
             </div>
 
-            {/* MOBILE CARD VIEW (visible on mobile, hidden on md+) - Avoids awkward table scrolling */}
-            <div className="grid grid-cols-1 gap-3 md:hidden">
+            {/* MOBILE CARD VIEW (visible on mobile, hidden on md+) */}
+            <div className="grid grid-cols-1 gap-2.5 md:hidden">
               {visibleEnrollments.map((item) => (
                 <div
                   key={item.id}
-                  className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 shadow-2xs space-y-3"
+                  className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-3 shadow-2xs space-y-2"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
                         {item.student.studentNumber}
                       </span>
-                      <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1.5">
+                      <h3 className="text-xs font-bold text-slate-900 dark:text-white truncate">
                         {formatStudentName(item.student)}
                       </h3>
                     </div>
 
                     <button
                       onClick={() => setUnenrollingStudent(item.student)}
-                      className="px-2.5 py-1 text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+                      className="px-2 py-1 text-[11px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-md hover:bg-red-100 transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
                     >
-                      <UserMinus className="w-3.5 h-3.5" /> Remove
+                      <UserMinus className="w-3 h-3" /> Remove
                     </button>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-xs space-y-1.5 text-slate-600 dark:text-slate-300">
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">{item.student.email || "No email"}</span>
-                    </div>
-                    {item.student.contactInfo && (
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>{item.student.contactInfo}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 text-slate-400 text-[11px]">
-                      <Calendar className="w-3.5 h-3.5 shrink-0" />
-                      <span>
-                        Enrolled:{" "}
-                        {new Date(item.enrolledAt).toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </span>
-                    </div>
+                  <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 text-[11px] flex items-center justify-between text-slate-400 dark:text-slate-500">
+                    <span>Enrolled Date</span>
+                    <span className="font-mono text-slate-600 dark:text-slate-300">
+                      {new Date(item.enrolledAt).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
                   </div>
                 </div>
               ))}
