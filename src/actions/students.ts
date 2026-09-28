@@ -48,7 +48,16 @@ export async function getStudents(searchQuery?: string) {
             ],
           }
         : undefined,
-      include: {
+      select: {
+        id: true,
+        studentNumber: true,
+        lastName: true,
+        firstName: true,
+        middleInitial: true,
+        email: true,
+        contactInfo: true,
+        createdAt: true,
+        updatedAt: true,
         _count: {
           select: { enrollments: true },
         },
@@ -78,9 +87,10 @@ export async function createStudent(input: StudentInput) {
     if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message || "Invalid student details." };
     const validated = parsed.data;
 
-    // Check for unique student number among active students
+    // Check for unique student number selecting only id
     const existing = await prisma.student.findFirst({
       where: { studentNumber: validated.studentNumber },
+      select: { id: true },
     });
 
     if (existing) {
@@ -179,21 +189,31 @@ export async function updateStudent(id: string, input: StudentInput) {
     if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message || "Invalid student details." };
     const validated = parsed.data;
 
-    // Fetch existing student snapshot to compute diffs
+    // Fetch existing student snapshot selecting only needed fields for diffs
     const currentStudent = await prisma.student.findFirst({
       where: { id: studentId },
+      select: {
+        id: true,
+        studentNumber: true,
+        lastName: true,
+        firstName: true,
+        middleInitial: true,
+        email: true,
+        contactInfo: true,
+      },
     });
 
     if (!currentStudent) {
       return { success: false, error: "The student no longer exists." };
     }
 
-    // Check if another active student uses this student number
+    // Check if another active student uses this student number selecting only id
     const existing = await prisma.student.findFirst({
       where: {
         studentNumber: validated.studentNumber,
         NOT: { id: studentId },
       },
+      select: { id: true },
     });
 
     if (existing) {
@@ -273,6 +293,7 @@ export async function deleteStudent(id: string) {
 
     const existing = await prisma.student.findFirst({
       where: { id: studentId },
+      select: { id: true },
     });
 
     if (!existing) {
@@ -320,7 +341,14 @@ export async function getStudentAttendanceHistory(studentId: string) {
 
     const student = await prisma.student.findFirst({
       where: { id: validStudentId },
-      include: {
+      select: {
+        id: true,
+        studentNumber: true,
+        lastName: true,
+        firstName: true,
+        middleInitial: true,
+        email: true,
+        contactInfo: true,
         attendances: {
           where: {
             session: {
@@ -329,10 +357,22 @@ export async function getStudentAttendanceHistory(studentId: string) {
               },
             },
           },
-          include: {
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
             session: {
-              include: {
-                subject: true,
+              select: {
+                id: true,
+                title: true,
+                sessionDate: true,
+                subject: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true,
+                  },
+                },
               },
             },
           },
@@ -348,8 +388,16 @@ export async function getStudentAttendanceHistory(studentId: string) {
               teacherId,
             },
           },
-          include: {
-            subject: true,
+          select: {
+            id: true,
+            enrolledAt: true,
+            subject: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
           },
         },
       },
@@ -378,7 +426,12 @@ export async function getStudentEditHistory(studentId: string) {
 
     const logs = await prisma.studentAuditLog.findMany({
       where: { studentId: parsedId.data },
-      include: {
+      select: {
+        id: true,
+        studentId: true,
+        action: true,
+        changes: true,
+        createdAt: true,
         updatedBy: {
           select: {
             id: true,

@@ -33,7 +33,17 @@ export async function getTeacherSubjects(searchQuery?: string, isArchived: boole
             }
           : {}),
       },
-      include: {
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        schedules: true,
+        color: true,
+        isArchived: true,
+        teacherId: true,
+        createdAt: true,
+        updatedAt: true,
         _count: {
           select: {
             enrollments: true,
@@ -67,12 +77,13 @@ export async function createSubject(input: SubjectInput) {
     const validated = parsed.data;
     const formattedCode = validated.code.toUpperCase().trim();
 
-    // Check unique constraint for [code, teacherId] among active subjects
+    // Check unique constraint for [code, teacherId] among active subjects selecting only id
     const existing = await prisma.subject.findFirst({
       where: {
         code: formattedCode,
         teacherId: session.user.id,
       },
+      select: { id: true },
     });
 
     if (existing) {
@@ -123,16 +134,17 @@ export async function updateSubject(id: string, input: SubjectInput) {
     const validated = parsed.data;
     const formattedCode = validated.code.toUpperCase().trim();
 
-    // Verify ownership
+    // Verify ownership selecting only needed fields
     const existing = await prisma.subject.findFirst({
       where: { id: parsedId.data, teacherId: session.user.id },
+      select: { id: true, code: true },
     });
 
     if (!existing) {
       return { success: false, error: "Subject not found or unauthorized." };
     }
 
-    // Check code conflict if code changed
+    // Check code conflict if code changed selecting only id
     if (existing.code !== formattedCode) {
       const codeConflict = await prisma.subject.findFirst({
         where: {
@@ -140,6 +152,7 @@ export async function updateSubject(id: string, input: SubjectInput) {
           teacherId: session.user.id,
           NOT: { id: parsedId.data },
         },
+        select: { id: true },
       });
 
       if (codeConflict) {
@@ -186,6 +199,7 @@ export async function archiveSubject(id: string) {
 
     const existing = await prisma.subject.findFirst({
       where: { id: parsedId.data, teacherId: session.user.id },
+      select: { id: true },
     });
 
     if (!existing) {
@@ -221,6 +235,7 @@ export async function unarchiveSubject(id: string) {
 
     const existing = await prisma.subject.findFirst({
       where: { id: parsedId.data, teacherId: session.user.id },
+      select: { id: true },
     });
 
     if (!existing) {
@@ -255,9 +270,10 @@ export async function deleteSubject(id: string) {
     }
     const subjectId = parsedId.data;
 
-    // Verify ownership
+    // Verify ownership selecting only id
     const existing = await prisma.subject.findFirst({
       where: { id: subjectId, teacherId: session.user.id },
+      select: { id: true },
     });
 
     if (!existing) {
@@ -313,10 +329,22 @@ export async function getSubjectAttendanceExportData(subjectId: string) {
         id: parsedId.data,
         teacherId: session.user.id,
       },
-      include: {
+      select: {
+        id: true,
+        code: true,
+        name: true,
         enrollments: {
-          include: {
-            student: true,
+          select: {
+            student: {
+              select: {
+                id: true,
+                studentNumber: true,
+                firstName: true,
+                lastName: true,
+                middleInitial: true,
+                email: true,
+              },
+            },
           },
           orderBy: [
             { student: { lastName: "asc" } },
@@ -324,8 +352,16 @@ export async function getSubjectAttendanceExportData(subjectId: string) {
           ],
         },
         sessions: {
-          include: {
-            records: true,
+          select: {
+            id: true,
+            title: true,
+            sessionDate: true,
+            records: {
+              select: {
+                studentId: true,
+                status: true,
+              },
+            },
           },
           orderBy: {
             sessionDate: "asc",

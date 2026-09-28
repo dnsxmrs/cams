@@ -28,10 +28,31 @@ export async function getSubjectForSession(subjectId: string) {
         id: parsedId.data,
         teacherId: authSession.user.id,
       },
-      include: {
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        schedules: true,
+        color: true,
+        isArchived: true,
         enrollments: {
-          include: {
-            student: true,
+          select: {
+            id: true,
+            subjectId: true,
+            studentId: true,
+            enrolledAt: true,
+            student: {
+              select: {
+                id: true,
+                studentNumber: true,
+                lastName: true,
+                firstName: true,
+                middleInitial: true,
+                email: true,
+                contactInfo: true,
+              },
+            },
           },
           orderBy: [
             { student: { lastName: "asc" } },
@@ -81,8 +102,19 @@ export async function getTodaySessionForSubject(subjectId: string) {
           lte: endOfToday,
         },
       },
-      include: {
-        records: true,
+      select: {
+        id: true,
+        subjectId: true,
+        sessionDate: true,
+        title: true,
+        records: {
+          select: {
+            id: true,
+            sessionId: true,
+            studentId: true,
+            status: true,
+          },
+        },
       },
     });
 
@@ -116,11 +148,33 @@ export async function getTeacherAttendanceSessions(searchQuery?: string) {
             }
           : {}),
       },
-      include: {
-        subject: true,
+      select: {
+        id: true,
+        subjectId: true,
+        title: true,
+        sessionDate: true,
+        createdAt: true,
+        subject: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
         records: {
-          include: {
-            student: true,
+          select: {
+            id: true,
+            status: true,
+            student: {
+              select: {
+                id: true,
+                studentNumber: true,
+                lastName: true,
+                firstName: true,
+                middleInitial: true,
+                email: true,
+              },
+            },
           },
         },
       },
@@ -155,11 +209,39 @@ export async function getSessionById(sessionId: string) {
           teacherId: authSession.user.id,
         },
       },
-      include: {
-        subject: true,
+      select: {
+        id: true,
+        subjectId: true,
+        title: true,
+        sessionDate: true,
+        createdAt: true,
+        subject: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            description: true,
+            color: true,
+          },
+        },
         records: {
-          include: {
-            student: true,
+          select: {
+            id: true,
+            sessionId: true,
+            studentId: true,
+            status: true,
+            createdAt: true,
+            student: {
+              select: {
+                id: true,
+                studentNumber: true,
+                lastName: true,
+                firstName: true,
+                middleInitial: true,
+                email: true,
+                contactInfo: true,
+              },
+            },
           },
           orderBy: [
             { student: { lastName: "asc" } },
@@ -193,7 +275,7 @@ export async function createAttendanceSessionAndRecords(
 
     // Validate payload with Zod
     const parsedPayload = recordAttendanceSchema.safeParse({
-      sessionId: subjectId, // Validate format as UUID or non-empty string
+      sessionId: subjectId,
       records,
     });
 
@@ -202,19 +284,20 @@ export async function createAttendanceSessionAndRecords(
       return { success: false, error: msg };
     }
 
-    // Verify teacher owns the subject
+    // Verify teacher owns the subject selecting only id
     const subject = await prisma.subject.findFirst({
       where: {
         id: subjectId,
         teacherId: authSession.user.id,
       },
+      select: { id: true },
     });
 
     if (!subject) {
       return { success: false, error: "Subject not found or unauthorized." };
     }
 
-    // Check if attendance session was already created today for this subject
+    // Check if attendance session was already created today for this subject selecting only id
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
@@ -229,6 +312,7 @@ export async function createAttendanceSessionAndRecords(
           lte: endOfToday,
         },
       },
+      select: { id: true },
     });
 
     if (existingTodaySession) {
@@ -282,28 +366,27 @@ export async function getAttendanceReports() {
     }
     const teacherId = authSession.user.id;
 
-    // Fetch all subjects for this teacher with their sessions and records
+    // Fetch subjects for this teacher selecting only needed fields for reports
     const subjects = await prisma.subject.findMany({
       where: { teacherId },
-      include: {
+      select: {
+        id: true,
+        code: true,
+        name: true,
         enrollments: {
-          include: {
-            student: true,
-          },
+          select: { id: true },
         },
         sessions: {
-          include: {
+          select: {
             records: {
-              include: {
-                student: true,
-              },
+              select: { status: true },
             },
           },
         },
       },
     });
 
-    // Fetch students enrolled in this teacher's subjects
+    // Fetch students enrolled in this teacher's subjects selecting only needed fields
     const students = await prisma.student.findMany({
       where: {
         enrollments: {
@@ -314,7 +397,13 @@ export async function getAttendanceReports() {
           },
         },
       },
-      include: {
+      select: {
+        id: true,
+        studentNumber: true,
+        lastName: true,
+        firstName: true,
+        middleInitial: true,
+        email: true,
         attendances: {
           where: {
             session: {
@@ -323,16 +412,7 @@ export async function getAttendanceReports() {
               },
             },
           },
-        },
-        enrollments: {
-          where: {
-            subject: {
-              teacherId,
-            },
-          },
-          include: {
-            subject: true,
-          },
+          select: { status: true },
         },
       },
       orderBy: [
