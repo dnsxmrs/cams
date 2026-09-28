@@ -162,11 +162,15 @@ const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
 
   const createdStudents = [];
   for (const s of studentSeeds) {
-    const student = await prisma.student.upsert({
+    const existing = await prisma.student.findFirst({
       where: { studentNumber: s.studentNumber },
-      update: { lastName: s.lastName, firstName: s.firstName, middleInitial: s.middleInitial, email: s.email, contactInfo: s.contactInfo },
-      create: s,
     });
+    const student = existing
+      ? await prisma.student.update({
+          where: { id: existing.id },
+          data: { lastName: s.lastName, firstName: s.firstName, middleInitial: s.middleInitial, email: s.email, contactInfo: s.contactInfo },
+        })
+      : await prisma.student.create({ data: s });
     createdStudents.push(student);
   }
   console.log(`✅ Seeded ${createdStudents.length} students.`);
@@ -179,53 +183,65 @@ const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
   const activeTemplates = SUBJECT_TEMPLATES.slice(0, 6);
   const archivedTemplates = SUBJECT_TEMPLATES.slice(6, 8);
 
-  const createdSubjects: Record<string, Awaited<ReturnType<typeof prisma.subject.upsert>>> = {};
+  const createdSubjects: Record<string, Awaited<ReturnType<typeof prisma.subject.create>>> = {};
 
   for (let i = 0; i < activeTemplates.length; i++) {
     const tpl = activeTemplates[i];
-    const subject = await prisma.subject.upsert({
-      where: { code_teacherId: { code: tpl.code, teacherId: teacher.id } },
-      update: {
-        name: tpl.name,
-        description: tpl.description,
-        color: COLORS[i % COLORS.length],
-        schedules: JSON.stringify(SCHEDULE_SLOTS[i % SCHEDULE_SLOTS.length]),
-        isArchived: false,
-      },
-      create: {
-        code: tpl.code,
-        name: tpl.name,
-        description: tpl.description,
-        color: COLORS[i % COLORS.length],
-        schedules: JSON.stringify(SCHEDULE_SLOTS[i % SCHEDULE_SLOTS.length]),
-        isArchived: false,
-        teacherId: teacher.id,
-      },
+    const existing = await prisma.subject.findFirst({
+      where: { code: tpl.code, teacherId: teacher.id },
     });
+    const subject = existing
+      ? await prisma.subject.update({
+          where: { id: existing.id },
+          data: {
+            name: tpl.name,
+            description: tpl.description,
+            color: COLORS[i % COLORS.length],
+            schedules: JSON.stringify(SCHEDULE_SLOTS[i % SCHEDULE_SLOTS.length]),
+            isArchived: false,
+          },
+        })
+      : await prisma.subject.create({
+          data: {
+            code: tpl.code,
+            name: tpl.name,
+            description: tpl.description,
+            color: COLORS[i % COLORS.length],
+            schedules: JSON.stringify(SCHEDULE_SLOTS[i % SCHEDULE_SLOTS.length]),
+            isArchived: false,
+            teacherId: teacher.id,
+          },
+        });
     createdSubjects[tpl.code] = subject;
   }
 
   for (let i = 0; i < archivedTemplates.length; i++) {
     const tpl = archivedTemplates[i];
-    const subject = await prisma.subject.upsert({
-      where: { code_teacherId: { code: tpl.code, teacherId: teacher.id } },
-      update: {
-        name: tpl.name,
-        description: tpl.description,
-        color: COLORS[(i + 6) % COLORS.length],
-        schedules: JSON.stringify(SCHEDULE_SLOTS[(i + 6) % SCHEDULE_SLOTS.length]),
-        isArchived: true,
-      },
-      create: {
-        code: tpl.code,
-        name: tpl.name,
-        description: tpl.description,
-        color: COLORS[(i + 6) % COLORS.length],
-        schedules: JSON.stringify(SCHEDULE_SLOTS[(i + 6) % SCHEDULE_SLOTS.length]),
-        isArchived: true,
-        teacherId: teacher.id,
-      },
+    const existing = await prisma.subject.findFirst({
+      where: { code: tpl.code, teacherId: teacher.id },
     });
+    const subject = existing
+      ? await prisma.subject.update({
+          where: { id: existing.id },
+          data: {
+            name: tpl.name,
+            description: tpl.description,
+            color: COLORS[(i + 6) % COLORS.length],
+            schedules: JSON.stringify(SCHEDULE_SLOTS[(i + 6) % SCHEDULE_SLOTS.length]),
+            isArchived: true,
+          },
+        })
+      : await prisma.subject.create({
+          data: {
+            code: tpl.code,
+            name: tpl.name,
+            description: tpl.description,
+            color: COLORS[(i + 6) % COLORS.length],
+            schedules: JSON.stringify(SCHEDULE_SLOTS[(i + 6) % SCHEDULE_SLOTS.length]),
+            isArchived: true,
+            teacherId: teacher.id,
+          },
+        });
     createdSubjects[tpl.code] = subject;
   }
   console.log(`✅ Seeded ${activeTemplates.length} active + ${archivedTemplates.length} archived subjects.`);
@@ -258,11 +274,14 @@ const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
     enrollmentsBySubject[plan.code] = roster;
 
     for (const student of roster) {
-      await prisma.enrollment.upsert({
-        where: { subjectId_studentId: { subjectId: subject.id, studentId: student.id } },
-        update: {},
-        create: { subjectId: subject.id, studentId: student.id },
+      const existing = await prisma.enrollment.findFirst({
+        where: { subjectId: subject.id, studentId: student.id },
       });
+      if (!existing) {
+        await prisma.enrollment.create({
+          data: { subjectId: subject.id, studentId: student.id },
+        });
+      }
     }
     console.log(`   - ${plan.code}: ${roster.length} students enrolled`);
   }

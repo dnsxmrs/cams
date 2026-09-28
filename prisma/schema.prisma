@@ -84,7 +84,7 @@ model TwoFactor {
 
 model Student {
   id            String             @id @default(uuid())
-  studentNumber String             @unique
+  studentNumber String
   lastName      String
   firstName     String
   middleInitial String?
@@ -92,9 +92,12 @@ model Student {
   contactInfo   String?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
+  deletedAt     DateTime?
   enrollments   Enrollment[]
   attendances   AttendanceRecord[]
   auditLogs     StudentAuditLog[]
+
+  @@index([studentNumber])
 }
 
 model Subject {
@@ -109,21 +112,25 @@ model Subject {
   teacher     User                @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
+  deletedAt   DateTime?
   enrollments Enrollment[]
   sessions    AttendanceSession[]
 
-  @@unique([code, teacherId])
+  @@index([code, teacherId])
 }
 
 model Enrollment {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   subjectId  String
-  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subject    Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   studentId  String
-  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  enrolledAt DateTime @default(now())
+  student    Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrolledAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
 
-  @@unique([subjectId, studentId]) // Prevents duplicate student enrollment in same subject
+  @@index([subjectId, studentId])
 }
 
 model AttendanceSession {
@@ -134,6 +141,10 @@ model AttendanceSession {
   title       String?
   records     AttendanceRecord[]
   createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  deletedAt   DateTime?
+
+  @@index([subjectId])
 }
 
 model AttendanceRecord {
@@ -143,9 +154,11 @@ model AttendanceRecord {
   studentId String
   student   Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
   status    AttendanceStatus  @default(PRESENT)
+  createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
+  deletedAt DateTime?
 
-  @@unique([sessionId, studentId]) // Prevents duplicate student records in same session
+  @@index([sessionId, studentId])
 }
 
 model StudentAuditLog {
