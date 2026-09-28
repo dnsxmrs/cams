@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { Globe, Plus, Search, Edit2, Trash2, BookOpen, Loader2, X, AlertCircle, Upload, History } from "lucide-react";
+import { Globe, Plus, Search, Edit2, Trash2, BookOpen, Loader2, X, AlertCircle, Upload, History, Mail, Phone } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { getStudents, createStudent, updateStudent, deleteStudent, importStudents } from "@/actions/students";
 import { formatStudentName } from "@/lib/student";
@@ -308,18 +308,18 @@ export default function StudentDirectoryPage() {
 
   return (
     <div className="space-y-6">
-      {/* Search & Stats */}
+      {/* Search & Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="relative w-full sm:w-72">
           <input
             type="text"
-            placeholder="Search by ID, last/first name, or email..."
+            placeholder="Search by ID, name, or email..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full pl-10 pr-10 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all shadow-2xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
+            className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all shadow-2xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
           />
           <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
           {search && (
@@ -336,9 +336,10 @@ export default function StudentDirectoryPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-          <label className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-2 cursor-pointer">
-            <Upload className="w-4 h-4" /> Import CSV
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5">
+          <label className="px-3.5 py-2.5 sm:py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl shadow-2xs transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer">
+            <Upload className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+            <span>Import CSV</span>
             <input
               type="file"
               accept=".csv,text/csv"
@@ -349,14 +350,15 @@ export default function StudentDirectoryPage() {
           </label>
           <button
             onClick={handleOpenAddModal}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+            className="px-3.5 py-2.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
           >
-            <Plus className="w-4 h-4" /> Add Student
+            <Plus className="w-4 h-4" />
+            <span>Add Student</span>
           </button>
         </div>
       </div>
 
-      {/* Directory Table */}
+      {/* Directory Table / Cards View */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
         {isLoading && students.length === 0 ? (
           <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
@@ -370,54 +372,120 @@ export default function StudentDirectoryPage() {
             <p>{search ? "No student matches your search criteria." : "The global directory is currently empty. Click 'Add Student' to get started."}</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[650px]">
-              <thead>
-                <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                  <th className="py-3.5 px-4">Student ID</th>
-                  <th className="py-3.5 px-4">Student Name (Last, First M.I.)</th>
-                  <th className="py-3.5 px-4">Email</th>
-                  <th className="py-3.5 px-4">Contact</th>
-                  <th className="py-3.5 px-4">Enrolled Subjects</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                {visibleStudents.map((st) => (
-                  <tr key={st.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">{st.studentNumber}</td>
-                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">{formatStudentName(st)}</td>
-                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{st.email || "—"}</td>
-                    <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">{st.contactInfo || "—"}</td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-bold text-blue-700 dark:text-blue-300">
-                        {st._count.enrollments} Subjects
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right space-x-3">
-                      <Link
-                        href={`/students/${st.id}/history`}
-                        className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 inline-flex items-center gap-1 transition-colors cursor-pointer"
-                      >
-                        <History className="w-3.5 h-3.5" /> History
-                      </Link>
-                      <button
-                        onClick={() => handleOpenEditModal(st)}
-                        className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 inline-flex items-center gap-1 transition-colors cursor-pointer"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" /> Edit
-                      </button>
-                      <button
-                        onClick={() => setDeletingStudent(st)}
-                        className="text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 inline-flex items-center gap-1 transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" /> Delete
-                      </button>
-                    </td>
+          <div>
+            {/* Desktop Table View (md:block) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                    <th className="py-3.5 px-4">Student ID</th>
+                    <th className="py-3.5 px-4">Student Name (Last, First M.I.)</th>
+                    <th className="py-3.5 px-4">Email</th>
+                    <th className="py-3.5 px-4">Contact</th>
+                    <th className="py-3.5 px-4">Enrolled Subjects</th>
+                    <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                  {visibleStudents.map((st) => (
+                    <tr key={st.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                      <td className="py-3.5 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">{st.studentNumber}</td>
+                      <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">{formatStudentName(st)}</td>
+                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{st.email || "—"}</td>
+                      <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">{st.contactInfo || "—"}</td>
+                      <td className="py-3.5 px-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800">
+                          {st._count.enrollments} {st._count.enrollments === 1 ? "Subject" : "Subjects"}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right space-x-3">
+                        <Link
+                          href={`/students/${st.id}/history`}
+                          className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <History className="w-3.5 h-3.5" /> History
+                        </Link>
+                        <button
+                          onClick={() => handleOpenEditModal(st)}
+                          className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" /> Edit
+                        </button>
+                        <button
+                          onClick={() => setDeletingStudent(st)}
+                          className="text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards View (md:hidden) */}
+            <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+              {visibleStudents.map((st) => (
+                <div key={st.id} className="p-4 space-y-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-snug truncate">
+                        {formatStudentName(st)}
+                      </h3>
+                      <span className="inline-block mt-1 px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800">
+                        {st.studentNumber}
+                      </span>
+                    </div>
+                    <span className="shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800">
+                      {st._count.enrollments} {st._count.enrollments === 1 ? "Subject" : "Subjects"}
+                    </span>
+                  </div>
+
+                  {(st.email || st.contactInfo) && (
+                    <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400 pt-0.5">
+                      {st.email && (
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{st.email}</span>
+                        </div>
+                      )}
+                      {st.contactInfo && (
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{st.contactInfo}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800/60">
+                    <Link
+                      href={`/students/${st.id}/history`}
+                      className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100/80 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <History className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                      <span>History</span>
+                    </Link>
+                    <button
+                      onClick={() => handleOpenEditModal(st)}
+                      className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50/70 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200/70 dark:border-blue-800/60 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      onClick={() => setDeletingStudent(st)}
+                      className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50/70 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 border border-red-200/70 dark:border-red-800/60 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <Pagination
               page={currentPage}
               pageSize={pageSize}
