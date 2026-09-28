@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
+import { useState, useEffect, useCallback, useMemo, useSyncExternalStore, useRef } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { Globe, Plus, Search, Edit2, Trash2, BookOpen, Loader2, X, AlertCircle, Upload, History, Mail, Phone } from "lucide-react";
+import { Globe, Plus, UserPlus, Search, Edit2, Trash2, BookOpen, Loader2, X, AlertCircle, Upload, History, Mail, Phone } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { getStudents, createStudent, updateStudent, deleteStudent, importStudents } from "@/actions/students";
 import { formatStudentName } from "@/lib/student";
@@ -137,6 +137,22 @@ export default function StudentDirectoryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const isMounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
+
+  // Floating Action Button state
+  const [isFabOpen, setIsFabOpen] = useState(false);
+  const fabRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (fabRef.current && !fabRef.current.contains(event.target as Node)) {
+        setIsFabOpen(false);
+      }
+    }
+    if (isFabOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isFabOpen]);
 
   const fetchStudents = useCallback(async () => {
     setIsLoading(true);
@@ -336,7 +352,7 @@ export default function StudentDirectoryPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5">
+        <div className="hidden sm:flex sm:items-center gap-2.5">
           <label className="px-3.5 py-2.5 sm:py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl shadow-2xs transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer">
             <Upload className="w-4 h-4 text-slate-500 dark:text-slate-400" />
             <span>Import CSV</span>
@@ -680,6 +696,54 @@ export default function StudentDirectoryPage() {
           onClose={() => setHistoryStudentId(null)}
         />
       )}
+
+      {/* Floating Action Button Speed Dial (Mobile View) */}
+      {isMounted &&
+        createPortal(
+          <div ref={fabRef} className="sm:hidden fixed bottom-20 right-5 z-50 flex flex-col items-end gap-2.5">
+            {isFabOpen && (
+              <div className="flex flex-col items-end gap-2 animate-in fade-in slide-in-from-bottom-3 duration-150">
+                {/* Import CSV Option */}
+                <label className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 dark:bg-slate-800 text-white font-semibold text-xs rounded-xl shadow-xl cursor-pointer active:scale-95 transition-all border border-slate-700/50">
+                  <Upload className="w-4 h-4 text-blue-400" />
+                  <span>Import CSV</span>
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={(e) => {
+                      setIsFabOpen(false);
+                      handleImportCsv(e);
+                    }}
+                    disabled={isSubmitting}
+                    className="hidden"
+                  />
+                </label>
+
+                {/* Add Student Option */}
+                <button
+                  onClick={() => {
+                    setIsFabOpen(false);
+                    handleOpenAddModal();
+                  }}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xl cursor-pointer active:scale-95 transition-all"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Add Student</span>
+                </button>
+              </div>
+            )}
+
+            <button
+              onClick={() => setIsFabOpen(!isFabOpen)}
+              aria-label="Student action menu"
+              title="Student action menu"
+              className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white w-14 h-14 rounded-full shadow-xl shadow-blue-600/30 flex items-center justify-center cursor-pointer transition-transform duration-200"
+            >
+              <Plus className={`w-6 h-6 transition-transform duration-200 ${isFabOpen ? "rotate-45" : ""}`} />
+            </button>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
