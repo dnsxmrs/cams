@@ -1,6 +1,6 @@
 # Class Attendance Management System (CAMS)
 
-A full-stack, mobile-responsive web application designed for teachers to manage subjects, maintain a global student directory, enroll students into classes, conduct attendance sessions in real time, and analyze attendance history and risk reports.
+A full-stack, mobile-responsive web application designed for teachers to manage subjects, maintain a global student directory, enroll students into classes, conduct attendance sessions in real time, analyze attendance history and risk reports, and manage historical data safely via transparent soft deletes.
 
 ---
 
@@ -11,6 +11,7 @@ A full-stack, mobile-responsive web application designed for teachers to manage 
 - [Technology Stack](#-technology-stack)
 - [System Architecture](#-system-architecture)
 - [Database Documentation & ERD](#-database-documentation--erd)
+- [Soft Delete Architecture](#-soft-delete-architecture)
 - [Installation Steps](#-installation-steps)
 - [Database Setup](#-database-setup)
 - [Project Structure](#-project-structure)
@@ -22,14 +23,15 @@ A full-stack, mobile-responsive web application designed for teachers to manage 
 
 ## 🚀 Application Overview
 
-**Class Attendance Management System (CAMS)** solves administrative inefficiencies by providing a centralized platform for educators. Built on Next.js 16 and PostgreSQL, CAMS isolates teacher data while enabling global student management, multi-subject enrollments, atomic batch attendance marking, and real-time attendance performance analytics.
+**Class Attendance Management System (CAMS)** solves administrative inefficiencies by providing a centralized platform for educators. Built on Next.js 16 and PostgreSQL, CAMS isolates teacher data while enabling global student management, multi-subject enrollments, atomic batch attendance marking, real-time attendance performance analytics, transparent soft deletes, and optimized database queries.
 
 ### Core Goals
 
-- **Data Isolation**: Ensures teachers only access and manage their own subjects and attendance records.
+- **Data Isolation**: Ensures teachers only access and manage their own subjects, students, enrollments, and attendance records.
 - **Global Directory**: Separates student identity from subject enrollment to prevent duplication.
-- **Data Integrity**: Enforces strict database-level unique constraints to prevent duplicate enrollments or attendance records.
-- **Historical Preservation**: Retains student attendance logs even if a student is later unenrolled from a subject.
+- **Data Integrity & Active Constraints**: Enforces PostgreSQL partial unique indexes (`WHERE "deletedAt" IS NULL`) so active records maintain strict uniqueness while allowing soft-deleted records to be safely re-created.
+- **Historical Preservation & Soft Delete**: Replaces physical database hard deletes with soft deletes (`deletedAt` timestamps) across core models (`Student`, `Subject`, `Enrollment`, `AttendanceSession`, `AttendanceRecord`), preventing loss of academic history.
+- **Query Optimization**: Employs explicit column projections (`select`) across Server Actions to avoid over-fetching data.
 
 ---
 
@@ -43,20 +45,23 @@ A full-stack, mobile-responsive web application designed for teachers to manage 
 2. **Global Student Directory (`Req 2`)**
    - Centralized student repository with fields for Student Number, Full Name, Email, and Contact Info.
    - Real-time backend search and pagination across all student attributes.
-   - Full CRUD support with instant Zod schema validation.
+   - Full CRUD support with instant Zod schema validation and audit logging (`StudentAuditLog`).
+   - Soft-deleting a student cascade soft-deletes their enrollments and attendance records in a single database transaction.
 
 3. **Subject Management (`Req 3`)**
-   - Teachers can create, view, update, and delete their subjects.
-   - Enforces unique subject codes per teacher (`@@unique([code, teacherId])`).
+   - Teachers can create, view, update, archive, and soft-delete their subjects.
+   - Enforces unique subject codes per teacher for active subjects (`CREATE UNIQUE INDEX WHERE "deletedAt" IS NULL`).
    - Dynamic subject cards displaying enrolled student counts and active session stats.
+   - Soft-deleting a subject cascade soft-deletes its enrollments, sessions, and attendance records in a database transaction.
+   - `isArchived` state is kept separate from `deletedAt`.
 
 4. **Student Enrollment Module (`Req 4`)**
    - Enroll students into subjects from the global directory.
    - Interactive student roster view with single-click enrollment/unenrollment.
-   - Database constraint (`@@unique([subjectId, studentId])`) prevents duplicate enrollments.
+   - Active partial unique constraint (`(subjectId, studentId) WHERE "deletedAt" IS NULL`) prevents duplicate active enrollments while allowing re-enrollment after unenrollment.
 
 5. **Attendance Sessions (`Req 5`)**
-   - Create date-stamped attendance sessions per subject with custom session titles.
+   - Create date-stamped attendance sessions per subject with custom session titles (strictly once per subject per day).
    - Historical log viewer filtering sessions by subject and date.
 
 6. **Attendance Recording / Roll Call (`Req 6`)**
@@ -69,6 +74,7 @@ A full-stack, mobile-responsive web application designed for teachers to manage 
    - Overall school & subject-level attendance percentage calculations.
    - Interactive record viewer allowing teachers to modify historical session statuses.
    - Automated **At-Risk Student Detection** highlighting students below an 80% attendance threshold.
+   - Client-side UTF-8 CSV report export.
 
 ---
 
@@ -81,7 +87,7 @@ A full-stack, mobile-responsive web application designed for teachers to manage 
 | **Language** | [TypeScript 5](https://www.typescriptlang.org/) |
 | **Styling** | [Tailwind CSS v4](https://tailwindcss.com/) |
 | **Authentication** | [Better Auth v1.7](https://www.better-auth.com/) (Prisma Adapter) |
-| **Database ORM** | [Prisma ORM 7](https://www.prisma.io/) (`@prisma/adapter-pg`) |
+| **Database ORM** | [Prisma ORM 7](https://www.prisma.io/) (`@prisma/adapter-pg` & Client Extensions) |
 | **Database** | PostgreSQL (Hosted on [Supabase](https://supabase.com/)) |
 | **Validation** | [Zod v4](https://zod.dev/) |
 | **UI Components & Icons** | [Lucide React](https://lucide.dev/), [React Hot Toast](https://react-hot-toast.com/) |
@@ -97,21 +103,24 @@ graph TD
     Client["Mobile-First Frontend (Next.js 16 + React 19 + Tailwind CSS)"]
     API["Server Actions & Route Handlers (App Router)"]
     Auth["Better Auth (Cookie / Session Guard)"]
+    Ext["Prisma Client Extension ($extends)"]
     DB["Prisma ORM 7 (@prisma/adapter-pg)"]
     PG[("Supabase PostgreSQL Database")]
 
     Client -->|Form Submissions / User Interactions| API
     Client -->|Session Verification| Auth
-    API -->|Teacher Isolation & Auth Check| Auth
-    API -->|Type-Safe Queries| DB
+    API -->|Teacher Isolation & Zod Validation| Auth
+    API -->|Type-Safe Queries| Ext
+    Ext -->|Auto Soft-Delete & Relation Filters| DB
     DB -->|Connection Pooling| PG
 ```
 
 ### Data Isolation & Access Flow
 
-1. **Request Inspection**: Every Server Action calls `requireTeacherAuth()` to extract the authenticated user session.
+1. **Request Inspection**: Every Server Action validates user session via `getSession()` and verifies input schemas via Zod.
 2. **Context Filtering**: Data queries explicitly filter records using `where: { teacherId: user.id }`.
-3. **Database Execution**: Prisma communicates with PostgreSQL via pooled connections using standard transactional locks.
+3. **Prisma Client Extension**: Automatically injects `{ deletedAt: null }` filters across top-level queries and nested relation `include`/`select` blocks, and converts `.delete()` calls into soft delete updates (`deletedAt = now()`).
+4. **Database Execution**: Prisma communicates with PostgreSQL via pooled connections using standard transactional locks and partial unique indexes.
 
 ---
 
@@ -125,13 +134,14 @@ erDiagram
     User ||--o{ Account : "authenticates via"
     User ||--o{ TwoFactor : "has 2FA settings"
     User ||--o{ Subject : "owns & teaches"
+    User ||--o{ StudentAuditLog : "performs audit"
     
     Student ||--o{ Enrollment : "enrolled in"
+    Student ||--o{ AttendanceRecord : "has records"
+    Student ||--o{ StudentAuditLog : "has audit history"
     Subject ||--o{ Enrollment : "contains roster"
-    
     Subject ||--o{ AttendanceSession : "holds sessions"
     AttendanceSession ||--o{ AttendanceRecord : "contains entries"
-    Student ||--o{ AttendanceRecord : "has records"
 
     User {
         string id PK
@@ -146,7 +156,7 @@ erDiagram
 
     Student {
         string id PK
-        string studentNumber UK
+        string studentNumber
         string lastName
         string firstName
         string middleInitial
@@ -154,6 +164,7 @@ erDiagram
         string contactInfo
         datetime createdAt
         datetime updatedAt
+        datetime deletedAt
     }
 
     Subject {
@@ -167,6 +178,7 @@ erDiagram
         string teacherId FK
         datetime createdAt
         datetime updatedAt
+        datetime deletedAt
     }
 
     Enrollment {
@@ -174,6 +186,9 @@ erDiagram
         string subjectId FK
         string studentId FK
         datetime enrolledAt
+        datetime createdAt
+        datetime updatedAt
+        datetime deletedAt
     }
 
     AttendanceSession {
@@ -182,6 +197,8 @@ erDiagram
         datetime sessionDate
         string title
         datetime createdAt
+        datetime updatedAt
+        datetime deletedAt
     }
 
     AttendanceRecord {
@@ -189,7 +206,18 @@ erDiagram
         string sessionId FK
         string studentId FK
         enum status "PRESENT | ABSENT | LATE | EXCUSED"
+        datetime createdAt
         datetime updatedAt
+        datetime deletedAt
+    }
+
+    StudentAuditLog {
+        string id PK
+        string studentId FK
+        string updatedById FK
+        string action
+        json changes
+        datetime createdAt
     }
 ```
 
@@ -197,19 +225,43 @@ erDiagram
 
 1. **User (Teacher) ↔ Subject (1 : N)**
    - A teacher owns multiple subjects.
-   - Constraint: `@@unique([code, teacherId])` guarantees that a teacher cannot create two subjects with the identical code, while allowing different teachers to teach sections of the same subject code.
+   - Constraint: Partial unique index `Subject(code, teacherId) WHERE "deletedAt" IS NULL` guarantees a teacher cannot have duplicate active subjects with the same code, while allowing soft-deleted codes to be reused.
 
 2. **Subject ↔ Student (M : N via Enrollment)**
    - Handled through the `Enrollment` join table.
-   - Constraint: `@@unique([subjectId, studentId])` prevents a student from being enrolled twice in the same subject.
+   - Constraint: Partial unique index `Enrollment(subjectId, studentId) WHERE "deletedAt" IS NULL` prevents duplicate active enrollments.
 
 3. **Subject ↔ AttendanceSession (1 : N)**
    - A subject contains multiple attendance sessions recorded on specific dates.
-   - Deleting a subject cascade-deletes all associated sessions.
+   - Soft-deleting a subject cascade-soft-deletes all associated sessions, enrollments, and records in a transaction.
 
 4. **AttendanceSession ↔ AttendanceRecord (1 : N)**
    - Each session holds attendance entries for all enrolled students.
-   - Constraint: `@@unique([sessionId, studentId])` enforces data integrity so a student cannot have duplicate attendance status entries within the same session.
+   - Constraint: Partial unique index `AttendanceRecord(sessionId, studentId) WHERE "deletedAt" IS NULL` enforces data integrity so an active student cannot have duplicate attendance status entries within the same session.
+
+---
+
+## 🛡️ Soft Delete Architecture
+
+Soft deletion is enforced uniformly across the application according to strict rules:
+
+### 1. Model Coverage
+- **Soft-Deletable Models**: `Student`, `Subject`, `Enrollment`, `AttendanceSession`, `AttendanceRecord`.
+- **Hard-Delete / Append-Only Models**: `User`, `Session`, `Account`, `Verification`, `TwoFactor`, `StudentAuditLog`.
+
+### 2. Transparent Prisma Client Extension (`src/lib/prisma.ts`)
+- **Query Interception**: Intercepts `findMany`, `findFirst`, `findUnique`, `count`, `aggregate`, `groupBy` to automatically set `deletedAt: null`.
+- **Nested Relation Filtering**: Recursively traverses `include` and `select` trees for relations (`enrollments`, `sessions`, `records`, `student`, `subject`) and injects `{ where: { deletedAt: null } }`.
+- **Mutation Interception**: Intercepts `.delete()` and `.deleteMany()` on soft-deletable models and executes `.update()` / `.updateMany()` setting `deletedAt: new Date()`.
+
+### 3. Partial Unique Indexes
+PostgreSQL partial unique indexes allow soft-deleted records to coexist without blocking new record creation:
+```sql
+CREATE UNIQUE INDEX "Student_studentNumber_active_key" ON "Student"("studentNumber") WHERE "deletedAt" IS NULL;
+CREATE UNIQUE INDEX "Subject_code_teacherId_active_key" ON "Subject"("code", "teacherId") WHERE "deletedAt" IS NULL;
+CREATE UNIQUE INDEX "Enrollment_subjectId_studentId_active_key" ON "Enrollment"("subjectId", "studentId") WHERE "deletedAt" IS NULL;
+CREATE UNIQUE INDEX "AttendanceRecord_sessionId_studentId_active_key" ON "AttendanceRecord"("sessionId", "studentId") WHERE "deletedAt" IS NULL;
+```
 
 ---
 
@@ -231,23 +283,18 @@ npm install
 
 ### 2. Configure Environment Variables
 
-Create a `.env` file in the project root directory (refer to `.env.example` if available):
+Create a `.env` file in the project root directory:
 
 ```env
-# Database connection string (Transaction Pooler for runtime)
 DATABASE_URL="postgresql://postgres:password@aws-0-region.pooler.supabase.com:6543/postgres?pgbouncer=true"
-
-# Direct connection string (Session Mode for migrations)
 DIRECT_URL="postgresql://postgres:password@aws-0-region.pooler.supabase.com:5432/postgres"
 
-# Better Auth secret and base URL
 BETTER_AUTH_SECRET="your-super-secret-key-32-chars-min"
 BETTER_AUTH_URL="http://localhost:3000"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 NODE_ENV="development"
 
-# Nodemailer SMTP Mailer Configuration
 SMTP_HOST="smtp.gmail.com"
 SMTP_PORT=465
 SMTP_USER="your-email@gmail.com"
@@ -267,12 +314,12 @@ Generate the type-safe Prisma client matching your local environment:
 npx prisma generate
 ```
 
-### 2. Push Schema to Database
+### 2. Run Database Migrations
 
-Sync the Prisma schema directly to your PostgreSQL database:
+Apply migration scripts to sync your database schema:
 
 ```bash
-npx prisma db push
+npx prisma migrate dev
 ```
 
 ### 3. Seed Database (Optional)
@@ -299,34 +346,29 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ```text
 cams/
-├── docs/                      # Assessment & technical documentation
-│   ├── cams.md                # System requirements & specifications
-│   ├── completion_recap.md    # Feature audit & readiness recap
-│   ├── docu.mermaid           # System architecture diagram
-│   └── TRACKING.md            # Progress tracker
+├── docs/                      # Technical documentation & assessments
 ├── prisma/                    # Database models & migration scripts
+│   ├── migrations/            # SQL migration history
 │   ├── schema.prisma          # Database schema definitions
 │   └── seed.ts                # Database seeding script
 ├── src/
-│   ├── actions/               # Type-safe Server Actions (CRUD logic)
+│   ├── actions/               # Type-safe Server Actions (CRUD & validation)
 │   │   ├── attendance.ts      # Session & record server actions
-│   │   ├── enrollments.ts     # Subject roster server actions
+│   │   ├── auth.ts            # Auth & user status server actions
+│   │   ├── enrollments.ts     # Roster management server actions
 │   │   ├── students.ts        # Global directory server actions
 │   │   └── subjects.ts        # Subject management server actions
 │   ├── app/                   # Next.js App Router pages & layouts
-│   │   ├── (teacher)/         # Protected teacher routes
-│   │   │   ├── home/          # Main teacher dashboard
-│   │   │   ├── reports/       # Attendance analytics & at-risk reports
-│   │   │   ├── sessions/      # Attendance log & session viewer
-│   │   │   ├── students/      # Global student directory
-│   │   │   └── subjects/      # Subject management & rosters
+│   │   ├── (teacher)/         # Protected teacher dashboard routes
 │   │   ├── login/             # Teacher login page
 │   │   └── signup/            # Teacher registration page
 │   ├── components/            # Reusable UI components & navigation
-│   └── lib/                   # Database client & Auth singletons
+│   └── lib/                   # Singletons, auth & validations
 │       ├── auth.ts            # Better Auth server configuration
 │       ├── auth-client.ts     # Better Auth client hooks
-│       └── prisma.ts          # Global Prisma ORM client instance
+│       ├── exportAttendance.ts# UTF-8 CSV exporter
+│       ├── prisma.ts          # Extended Prisma client (Soft Delete)
+│       └── validations/       # Zod validation schemas
 └── package.json
 ```
 
@@ -334,65 +376,33 @@ cams/
 
 ## 🧠 Design Decisions & Technical Rationale
 
-During the technical presentation, the following design choices address key architectural questions:
+### 1. Transparent Soft Delete via Prisma Extensions
+- **Rationale**: Relying on manual `deletedAt: null` filters in every query is prone to developer error. Extending the Prisma client in `src/lib/prisma.ts` guarantees that every query, count, and nested relation automatically filters out soft-deleted records across the entire application.
 
-### 1. Global Student Directory vs. Subject-Bound Students
+### 2. Active Partial Unique Indexes
+- **Rationale**: Standard SQL `UNIQUE` constraints block inserting new active records with the same code or student number if a soft-deleted record exists. Creating partial unique indexes `WHERE "deletedAt" IS NULL` allows active uniqueness without causing conflicts with soft-deleted rows.
 
-- **Question**: *Why separate students from subjects instead of storing students inside a subject table?*
-- **Rationale**: Students exist independently in an academic institution. A single student enrolls in multiple subjects across terms. Storing student details directly inside a subject would cause severe data redundancy, inconsistency during updates (e.g. changing an email), and inability to track a student's overall cross-subject attendance performance.
+### 3. Backend Query Optimization & Explicit Selection
+- **Rationale**: Fetching all columns and unneeded relations wastes bandwidth and database connection memory. Server Actions utilize explicit `select` trees to fetch only necessary fields, significantly boosting API response performance.
 
-### 2. Multi-Subject Enrollment Handling
-
-- **Question**: *How does your design support a student enrolling in multiple subjects?*
-- **Rationale**: We modeled a clean Many-to-Many relationship using an `Enrollment` join table. The `@@unique([subjectId, studentId])` constraint prevents duplicate enrollments while allowing flexibility for a student to join an unlimited number of subjects.
-
-### 3. Historical Attendance Data Retention
-
-- **Question**: *If a student drops a subject after attending several classes, should their previous attendance records be deleted?*
-- **Rationale**: No. Attendance records serve as official academic logs. When a student is unenrolled, their `Enrollment` record is removed, but past `AttendanceRecord` entries remain intact in the database to maintain historical integrity and accurately reflect past classroom statistics.
-
-### 4. Teacher Security & Data Isolation
-
-- **Question**: *How does the system prevent a teacher from modifying another teacher's subject via API tampering?*
-- **Rationale**: Server Actions do not trust incoming IDs from the client. Every action retrieves the authenticated user's session ID (`session.user.id`) server-side using `requireTeacherAuth()` and enforces strict `where: { teacherId: user.id }` checks. Manipulating request payloads results in an instant 404 or Unauthorized response.
-
-### 5. Duplicate Attendance Marking Prevention
-
-- **Question**: *How do you prevent marking the same student multiple times in one session?*
-- **Rationale**: We enforced a database composite unique index `@@unique([sessionId, studentId])` on `AttendanceRecord`. Furthermore, batch session recording uses a Prisma `$transaction` to guarantee that all attendance entries are created atomically.
-
-### 6. Transactional Email & OTP Security
-
-- **Question**: *How is identity verification and account recovery secured?*
-- **Rationale**: Integrated Better Auth with **Nodemailer SMTP** (`src/lib/email.ts`) to deliver time-sensitive 6-digit OTP verification codes directly to the teacher's registered email address for account signup verification and password resets.
-
-### 7. Client-Side UTF-8 CSV Report Export
-
-- **Question**: *How are attendance reports exported without overloading the server?*
-- **Rationale**: CSV report generation (`src/lib/exportAttendance.ts`) constructs matrix datasets on-the-fly and triggers UTF-8 BOM encoded CSV downloads directly in the browser, eliminating server rendering overhead and ensuring full Microsoft Excel compatibility.
+### 4. Cascading Soft Delete Transactions
+- **Rationale**: Soft deleting a `Subject` or `Student` soft-deletes dependent records (`Enrollment`, `AttendanceSession`, `AttendanceRecord`) within a single `prisma.$transaction`, ensuring database consistency.
 
 ---
 
 ## ⚠️ Known Limitations
 
-1. **Manual Attendance Roll Call**: Attendance is logged manually by teachers; hardware-assisted self-service check-in (e.g., student QR code scanning or RFID card readers) is not currently implemented.
-2. **Single Portal Role Scope**: The application is optimized specifically for Teacher management accounts. Dedicated Student view portals or System-Admin dashboards are outside the current MVP scope.
-3. **PDF Document Compilation**: Reports are dynamically rendered on the web UI and downloadable as UTF-8 CSV files; native PDF binary compilation is not yet integrated.
+1. **Manual Attendance Roll Call**: Attendance is logged manually by teachers; hardware self-service check-in (e.g., QR scanning) is not currently implemented.
+2. **Single Portal Role Scope**: The application is optimized specifically for Teacher accounts.
+3. **PDF Document Compilation**: Reports are downloadable as UTF-8 CSV files; native PDF binary compilation is not yet integrated.
 
 ---
 
 ## ⚡ Future Scalability Enhancements
 
-If CAMS expands to thousands of teachers, tens of thousands of students, and millions of attendance records, the following architectural upgrades should be implemented:
-
-1. **Database Indexing**:
-   - Add explicit B-Tree composite indexes on `AttendanceRecord(studentId, status)` and `AttendanceSession(subjectId, sessionDate)` to optimize reporting aggregation queries.
-2. **Caching Layer (Redis)**:
-   - Cache subject rosters, teacher dashboard statistics, and student search indices in Redis to minimize DB round-trips during peak morning roll-call hours.
-3. **Asynchronous Background Processing**:
-   - Offload transactional email delivery and heavy batch analytics recalculations to a background worker queue (e.g., BullMQ with Redis).
-4. **Dynamic QR Code & Geofenced Attendance**:
-   - Implement dynamic, time-decaying QR codes on teacher screens allowing students to scan and check in with GPS/Wi-Fi geofencing validation.
+1. **Redis Caching**: Cache subject rosters and teacher stats to minimize DB round-trips.
+2. **Background Queues**: Offload email sending and heavy analytics calculations to a background worker queue (e.g., BullMQ).
+3. **Geofenced Check-in**: Implement dynamic QR codes for student self-check-in with geofencing validation.
 
 ---
 
