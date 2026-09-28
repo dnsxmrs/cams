@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import {
+  Download,
   Plus,
   Users,
   Zap,
@@ -959,14 +960,14 @@ export default function SubjectsPage() {
 
               <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 rounded-xl flex items-center justify-between gap-2 text-xs">
                 <span className="text-emerald-800 dark:text-emerald-300 font-medium">Save a copy before deleting:</span>
-                {/* <button
+                <button
                   type="button"
                   onClick={() => exportSubjectAttendanceCSV(deletingSubject.id, deletingSubject.code)}
                   className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
                 >
                   <Download className="w-3 h-3" />
                   <span>Export CSV</span>
-                </button> */}
+                </button>
               </div>
 
               <div>
