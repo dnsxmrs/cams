@@ -4,12 +4,30 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
+import { z } from "zod";
+import { recordAttendanceSchema } from "@/lib/validations";
+
 export type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
+
+const idValidationSchema = z.string().min(1, "ID is required.");
 
 export async function getSubjectForSession(subjectId: string) {
   try {
-    const subject = await prisma.subject.findUnique({
-      where: { id: subjectId },
+    const authSession = await getSession();
+    if (!authSession || !authSession.user) {
+      return { success: false, error: "Unauthorized access.", data: null };
+    }
+
+    const parsedId = idValidationSchema.safeParse(subjectId);
+    if (!parsedId.success) {
+      return { success: false, error: parsedId.error.issues[0]?.message || "Invalid subject ID.", data: null };
+    }
+
+    const subject = await prisma.subject.findFirst({
+      where: {
+        id: parsedId.data,
+        teacherId: authSession.user.id,
+      },
       include: {
         enrollments: {
           include: {
@@ -24,7 +42,7 @@ export async function getSubjectForSession(subjectId: string) {
     });
 
     if (!subject) {
-      return { success: false, error: "Subject not found.", data: null };
+      return { success: false, error: "Subject not found or unauthorized.", data: null };
     }
 
     return { success: true, data: subject };
@@ -36,6 +54,16 @@ export async function getSubjectForSession(subjectId: string) {
 
 export async function getTodaySessionForSubject(subjectId: string) {
   try {
+    const authSession = await getSession();
+    if (!authSession || !authSession.user) {
+      return { success: false, error: "Unauthorized access.", data: null };
+    }
+
+    const parsedId = idValidationSchema.safeParse(subjectId);
+    if (!parsedId.success) {
+      return { success: false, error: parsedId.error.issues[0]?.message || "Invalid subject ID.", data: null };
+    }
+
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
@@ -44,7 +72,10 @@ export async function getTodaySessionForSubject(subjectId: string) {
 
     const sessionRecord = await prisma.attendanceSession.findFirst({
       where: {
-        subjectId,
+        subjectId: parsedId.data,
+        subject: {
+          teacherId: authSession.user.id,
+        },
         sessionDate: {
           gte: startOfToday,
           lte: endOfToday,
@@ -65,12 +96,16 @@ export async function getTodaySessionForSubject(subjectId: string) {
 export async function getTeacherAttendanceSessions(searchQuery?: string) {
   try {
     const authSession = await getSession();
-    const teacherId = authSession?.user?.id;
-    const query = searchQuery?.trim();
+    if (!authSession || !authSession.user) {
+      return { success: false, error: "Unauthorized access.", data: [] };
+    }
+
+    const teacherId = authSession.user.id;
+    const query = typeof searchQuery === "string" ? searchQuery.trim() : undefined;
 
     const sessions = await prisma.attendanceSession.findMany({
       where: {
-        ...(teacherId ? { subject: { teacherId } } : {}),
+        subject: { teacherId },
         ...(query
           ? {
               OR: [
@@ -103,8 +138,23 @@ export async function getTeacherAttendanceSessions(searchQuery?: string) {
 
 export async function getSessionById(sessionId: string) {
   try {
-    const sessionRecord = await prisma.attendanceSession.findUnique({
-      where: { id: sessionId },
+    const authSession = await getSession();
+    if (!authSession || !authSession.user) {
+      return { success: false, error: "Unauthorized access.", data: null };
+    }
+
+    const parsedId = idValidationSchema.safeParse(sessionId);
+    if (!parsedId.success) {
+      return { success: false, error: parsedId.error.issues[0]?.message || "Invalid session ID.", data: null };
+    }
+
+    const sessionRecord = await prisma.attendanceSession.findFirst({
+      where: {
+        id: parsedId.data,
+        subject: {
+          teacherId: authSession.user.id,
+        },
+      },
       include: {
         subject: true,
         records: {
@@ -120,7 +170,7 @@ export async function getSessionById(sessionId: string) {
     });
 
     if (!sessionRecord) {
-      return { success: false, error: "Session log not found.", data: null };
+      return { success: false, error: "Session log not found or unauthorized.", data: null };
     }
 
     return { success: true, data: sessionRecord };
@@ -141,11 +191,30 @@ export async function createAttendanceSessionAndRecords(
       return { success: false, error: "You must be logged in to record attendance." };
     }
 
-    if (!records || records.length === 0) {
-      return { success: false, error: "No student records provided to save." };
+    // Validate payload with Zod
+    const parsedPayload = recordAttendanceSchema.safeParse({
+      sessionId: subjectId, // Validate format as UUID or non-empty string
+      records,
+    });
+
+    if (!parsedPayload.success) {
+      const msg = parsedPayload.error.issues[0]?.message || "Invalid attendance record payload.";
+      return { success: false, error: msg };
     }
 
-    // Check if attendance session was already created today for this subject (Attendance strictly once per day)
+    // Verify teacher owns the subject
+    const subject = await prisma.subject.findFirst({
+      where: {
+        id: subjectId,
+        teacherId: authSession.user.id,
+      },
+    });
+
+    if (!subject) {
+      return { success: false, error: "Subject not found or unauthorized." };
+    }
+
+    // Check if attendance session was already created today for this subject
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
@@ -208,11 +277,14 @@ export async function createAttendanceSessionAndRecords(
 export async function getAttendanceReports() {
   try {
     const authSession = await getSession();
-    const teacherId = authSession?.user?.id;
+    if (!authSession || !authSession.user) {
+      return { success: false, error: "Unauthorized access.", data: null };
+    }
+    const teacherId = authSession.user.id;
 
     // Fetch all subjects for this teacher with their sessions and records
     const subjects = await prisma.subject.findMany({
-      where: teacherId ? { teacherId } : undefined,
+      where: { teacherId },
       include: {
         enrollments: {
           include: {
@@ -231,11 +303,33 @@ export async function getAttendanceReports() {
       },
     });
 
-    // Fetch all students
+    // Fetch students enrolled in this teacher's subjects
     const students = await prisma.student.findMany({
-      include: {
-        attendances: true,
+      where: {
         enrollments: {
+          some: {
+            subject: {
+              teacherId,
+            },
+          },
+        },
+      },
+      include: {
+        attendances: {
+          where: {
+            session: {
+              subject: {
+                teacherId,
+              },
+            },
+          },
+        },
+        enrollments: {
+          where: {
+            subject: {
+              teacherId,
+            },
+          },
           include: {
             subject: true,
           },

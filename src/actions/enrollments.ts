@@ -4,10 +4,27 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
+import { z } from "zod";
+
+const idValidationSchema = z.string().min(1, "ID is required.");
+
 export async function getSubjectEnrollments(subjectId: string) {
   try {
-    const subject = await prisma.subject.findUnique({
-      where: { id: subjectId },
+    const session = await getSession();
+    if (!session || !session.user) {
+      return { success: false, error: "Unauthorized access.", data: null };
+    }
+
+    const parsedId = idValidationSchema.safeParse(subjectId);
+    if (!parsedId.success) {
+      return { success: false, error: parsedId.error.issues[0]?.message || "Invalid subject ID.", data: null };
+    }
+
+    const subject = await prisma.subject.findFirst({
+      where: {
+        id: parsedId.data,
+        teacherId: session.user.id,
+      },
       include: {
         enrollments: {
           include: {
@@ -23,7 +40,7 @@ export async function getSubjectEnrollments(subjectId: string) {
     });
 
     if (!subject) {
-      return { success: false, error: "Subject not found.", data: null };
+      return { success: false, error: "Subject not found or unauthorized.", data: null };
     }
 
     return { success: true, data: subject };
@@ -35,14 +52,33 @@ export async function getSubjectEnrollments(subjectId: string) {
 
 export async function getAvailableStudentsForSubject(subjectId: string, searchQuery?: string) {
   try {
-    const query = searchQuery?.trim();
+    const session = await getSession();
+    if (!session || !session.user) {
+      return { success: false, error: "Unauthorized access.", data: [] };
+    }
 
-    // Fetch students NOT currently enrolled in this subject
+    const parsedId = idValidationSchema.safeParse(subjectId);
+    if (!parsedId.success) {
+      return { success: false, error: parsedId.error.issues[0]?.message || "Invalid subject ID.", data: [] };
+    }
+
+    // Verify teacher owns the subject
+    const subject = await prisma.subject.findFirst({
+      where: { id: parsedId.data, teacherId: session.user.id },
+    });
+
+    if (!subject) {
+      return { success: false, error: "Subject not found or unauthorized.", data: [] };
+    }
+
+    const query = typeof searchQuery === "string" ? searchQuery.trim() : undefined;
+
+    // Fetch students NOT currently enrolled in this subject (active enrollments)
     const students = await prisma.student.findMany({
       where: {
         enrollments: {
           none: {
-            subjectId: subjectId,
+            subjectId: parsedId.data,
           },
         },
         ...(query
@@ -77,13 +113,26 @@ export async function enrollStudent(subjectId: string, studentId: string) {
       return { success: false, error: "You must be logged in to enroll students." };
     }
 
-    // Check duplicate enrollment constraint
-    const existing = await prisma.enrollment.findUnique({
+    const parsedSubjectId = idValidationSchema.safeParse(subjectId);
+    if (!parsedSubjectId.success) return { success: false, error: "Invalid subject ID." };
+
+    const parsedStudentId = idValidationSchema.safeParse(studentId);
+    if (!parsedStudentId.success) return { success: false, error: "Invalid student ID." };
+
+    // Ownership check: Verify teacher owns the subject
+    const subject = await prisma.subject.findFirst({
+      where: { id: parsedSubjectId.data, teacherId: session.user.id },
+    });
+
+    if (!subject) {
+      return { success: false, error: "Subject not found or unauthorized." };
+    }
+
+    // Check duplicate enrollment constraint among active enrollments
+    const existing = await prisma.enrollment.findFirst({
       where: {
-        subjectId_studentId: {
-          subjectId,
-          studentId,
-        },
+        subjectId: parsedSubjectId.data,
+        studentId: parsedStudentId.data,
       },
     });
 
@@ -93,15 +142,15 @@ export async function enrollStudent(subjectId: string, studentId: string) {
 
     const enrollment = await prisma.enrollment.create({
       data: {
-        subjectId,
-        studentId,
+        subjectId: parsedSubjectId.data,
+        studentId: parsedStudentId.data,
       },
       include: {
         student: true,
       },
     });
 
-    revalidatePath(`/subjects/${subjectId}/enrollments`);
+    revalidatePath(`/subjects/${parsedSubjectId.data}/enrollments`);
     revalidatePath(`/subjects`);
     revalidatePath(`/home`);
     revalidatePath(`/students`);
@@ -121,16 +170,34 @@ export async function unenrollStudent(subjectId: string, studentId: string) {
       return { success: false, error: "You must be logged in to remove students." };
     }
 
-    await prisma.enrollment.delete({
+    const parsedSubjectId = idValidationSchema.safeParse(subjectId);
+    if (!parsedSubjectId.success) return { success: false, error: "Invalid subject ID." };
+
+    const parsedStudentId = idValidationSchema.safeParse(studentId);
+    if (!parsedStudentId.success) return { success: false, error: "Invalid student ID." };
+
+    // Ownership check: Verify teacher owns the subject
+    const subject = await prisma.subject.findFirst({
+      where: { id: parsedSubjectId.data, teacherId: session.user.id },
+    });
+
+    if (!subject) {
+      return { success: false, error: "Subject not found or unauthorized." };
+    }
+
+    // Soft delete enrollment by setting deletedAt
+    await prisma.enrollment.updateMany({
       where: {
-        subjectId_studentId: {
-          subjectId,
-          studentId,
-        },
+        subjectId: parsedSubjectId.data,
+        studentId: parsedStudentId.data,
+        deletedAt: null,
+      },
+      data: {
+        deletedAt: new Date(),
       },
     });
 
-    revalidatePath(`/subjects/${subjectId}/enrollments`);
+    revalidatePath(`/subjects/${parsedSubjectId.data}/enrollments`);
     revalidatePath(`/subjects`);
     revalidatePath(`/home`);
     revalidatePath(`/students`);

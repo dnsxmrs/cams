@@ -17,13 +17,18 @@ export interface UserStatusResult {
 /**
  * Server Action: Validates whether a user exists in the database and their email verification status
  */
+import { z } from "zod";
+
+const emailValidationSchema = z.string().trim().email("Please enter a valid email address.");
+
 export async function checkUserStatus(email: string): Promise<UserStatusResult> {
   try {
-    if (!email || !email.trim()) {
-      return { exists: false, emailVerified: false, error: "Please enter a valid email address." };
+    const parsed = emailValidationSchema.safeParse(email);
+    if (!parsed.success) {
+      return { exists: false, emailVerified: false, error: parsed.error.issues[0]?.message || "Please enter a valid email address." };
     }
 
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = parsed.data.toLowerCase();
 
     const user = await prisma.user.findUnique({
       where: { email: cleanEmail },

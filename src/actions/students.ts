@@ -5,6 +5,10 @@ import { getSession } from "@/lib/auth";
 import { studentSchema, StudentInput } from "@/lib/validations";
 import { revalidatePath } from "next/cache";
 
+import { z } from "zod";
+
+const idValidationSchema = z.string().min(1, "Student ID is required.");
+
 function validationError(error: unknown, fallback: string) {
   if (error instanceof Error && error.name === "ZodError") {
     const issues = JSON.parse(error.message) as Array<{ message?: string }>;
@@ -25,7 +29,12 @@ function databaseError(error: unknown, fallback: string) {
 
 export async function getStudents(searchQuery?: string) {
   try {
-    const query = searchQuery?.trim();
+    const session = await getSession();
+    if (!session || !session.user) {
+      return { success: false, error: "Unauthorized access.", data: [] };
+    }
+
+    const query = typeof searchQuery === "string" ? searchQuery.trim() : undefined;
 
     const students = await prisma.student.findMany({
       where: query
@@ -60,12 +69,17 @@ export async function getStudents(searchQuery?: string) {
 
 export async function createStudent(input: StudentInput) {
   try {
+    const session = await getSession();
+    if (!session || !session.user) {
+      return { success: false, error: "You must be logged in to create a student." };
+    }
+
     const parsed = studentSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message || "Invalid student details." };
     const validated = parsed.data;
 
-    // Check for unique student number
-    const existing = await prisma.student.findUnique({
+    // Check for unique student number among active students
+    const existing = await prisma.student.findFirst({
       where: { studentNumber: validated.studentNumber },
     });
 
@@ -97,6 +111,11 @@ export async function createStudent(input: StudentInput) {
 
 export async function importStudents(inputs: StudentInput[]) {
   try {
+    const session = await getSession();
+    if (!session || !session.user) {
+      return { success: false, error: "You must be logged in to import students." };
+    }
+
     if (!Array.isArray(inputs) || inputs.length === 0) {
       return { success: false, error: "The CSV file contains no student rows." };
     }
@@ -147,25 +166,33 @@ export async function importStudents(inputs: StudentInput[]) {
 
 export async function updateStudent(id: string, input: StudentInput) {
   try {
-    if (!id) return { success: false, error: "Student ID is required." };
+    const session = await getSession();
+    if (!session || !session.user) {
+      return { success: false, error: "You must be logged in to update a student." };
+    }
+
+    const parsedId = idValidationSchema.safeParse(id);
+    if (!parsedId.success) return { success: false, error: parsedId.error.issues[0]?.message || "Student ID is required." };
+    const studentId = parsedId.data;
+
     const parsed = studentSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message || "Invalid student details." };
     const validated = parsed.data;
 
     // Fetch existing student snapshot to compute diffs
-    const currentStudent = await prisma.student.findUnique({
-      where: { id },
+    const currentStudent = await prisma.student.findFirst({
+      where: { id: studentId },
     });
 
     if (!currentStudent) {
       return { success: false, error: "The student no longer exists." };
     }
 
-    // Check if another student uses this student number
+    // Check if another active student uses this student number
     const existing = await prisma.student.findFirst({
       where: {
         studentNumber: validated.studentNumber,
-        NOT: { id },
+        NOT: { id: studentId },
       },
     });
 
@@ -198,7 +225,7 @@ export async function updateStudent(id: string, input: StudentInput) {
     }
 
     const student = await prisma.student.update({
-      where: { id },
+      where: { id: studentId },
       data: {
         studentNumber: validated.studentNumber,
         lastName: validated.lastName,
@@ -212,17 +239,14 @@ export async function updateStudent(id: string, input: StudentInput) {
     // Record audit log entry if fields were modified
     if (Object.keys(changes).length > 0) {
       try {
-        const session = await getSession();
-        if (session && session.user) {
-          await prisma.studentAuditLog.create({
-            data: {
-              studentId: id,
-              updatedById: session.user.id,
-              action: "UPDATE",
-              changes,
-            },
-          });
-        }
+        await prisma.studentAuditLog.create({
+          data: {
+            studentId,
+            updatedById: session.user.id,
+            action: "UPDATE",
+            changes,
+          },
+        });
       } catch (auditError) {
         console.error("Failed to create student audit log:", auditError);
       }
@@ -238,10 +262,40 @@ export async function updateStudent(id: string, input: StudentInput) {
 
 export async function deleteStudent(id: string) {
   try {
-    if (!id) return { success: false, error: "Student ID is required." };
-    await prisma.student.delete({
-      where: { id },
+    const session = await getSession();
+    if (!session || !session.user) {
+      return { success: false, error: "You must be logged in to delete a student." };
+    }
+
+    const parsedId = idValidationSchema.safeParse(id);
+    if (!parsedId.success) return { success: false, error: parsedId.error.issues[0]?.message || "Student ID is required." };
+    const studentId = parsedId.data;
+
+    const existing = await prisma.student.findFirst({
+      where: { id: studentId },
     });
+
+    if (!existing) {
+      return { success: false, error: "Student not found." };
+    }
+
+    const now = new Date();
+
+    // Cascading soft delete in a transaction for Student, Enrollments, AttendanceRecords
+    await prisma.$transaction([
+      prisma.attendanceRecord.updateMany({
+        where: { studentId },
+        data: { deletedAt: now },
+      }),
+      prisma.enrollment.updateMany({
+        where: { studentId },
+        data: { deletedAt: now },
+      }),
+      prisma.student.update({
+        where: { id: studentId },
+        data: { deletedAt: now },
+      }),
+    ]);
 
     revalidatePath("/students");
     return { success: true };
@@ -257,10 +311,15 @@ export async function getStudentAttendanceHistory(studentId: string) {
     if (!authSession || !authSession.user) {
       return { success: false, error: "Unauthorized access.", data: null };
     }
+
+    const parsedId = idValidationSchema.safeParse(studentId);
+    if (!parsedId.success) return { success: false, error: parsedId.error.issues[0]?.message || "Invalid student ID.", data: null };
+    const validStudentId = parsedId.data;
+
     const teacherId = authSession.user.id;
 
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
+    const student = await prisma.student.findFirst({
+      where: { id: validStudentId },
       include: {
         attendances: {
           where: {
@@ -314,8 +373,11 @@ export async function getStudentEditHistory(studentId: string) {
       return { success: false, error: "Unauthorized access.", data: [] };
     }
 
+    const parsedId = idValidationSchema.safeParse(studentId);
+    if (!parsedId.success) return { success: false, error: parsedId.error.issues[0]?.message || "Invalid student ID.", data: [] };
+
     const logs = await prisma.studentAuditLog.findMany({
-      where: { studentId },
+      where: { studentId: parsedId.data },
       include: {
         updatedBy: {
           select: {

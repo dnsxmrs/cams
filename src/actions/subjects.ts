@@ -5,18 +5,24 @@ import { getSession } from "@/lib/auth";
 import { subjectSchema, SubjectInput } from "@/lib/validations";
 import { revalidatePath } from "next/cache";
 
+import { z } from "zod";
+
+const idValidationSchema = z.string().min(1, "Subject ID is required.");
+
 export async function getTeacherSubjects(searchQuery?: string, isArchived: boolean = false) {
   try {
     const session = await getSession();
+    if (!session || !session.user) {
+      return { success: false, error: "Unauthorized access.", data: [] };
+    }
     
-    // If authenticated, filter by logged-in teacher ID. Otherwise fallback to all subjects for dev preview.
-    const teacherId = session?.user?.id;
-    const query = searchQuery?.trim();
+    const teacherId = session.user.id;
+    const query = typeof searchQuery === "string" ? searchQuery.trim() : undefined;
 
     const subjects = await prisma.subject.findMany({
       where: {
-        isArchived,
-        ...(teacherId ? { teacherId } : {}),
+        isArchived: Boolean(isArchived),
+        teacherId,
         ...(query
           ? {
               OR: [
@@ -54,16 +60,18 @@ export async function createSubject(input: SubjectInput) {
       return { success: false, error: "You must be logged in as a teacher to create a subject." };
     }
 
-    const validated = subjectSchema.parse(input);
+    const parsed = subjectSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0]?.message || "Invalid subject details." };
+    }
+    const validated = parsed.data;
     const formattedCode = validated.code.toUpperCase().trim();
 
-    // Check unique constraint for [code, teacherId]
-    const existing = await prisma.subject.findUnique({
+    // Check unique constraint for [code, teacherId] among active subjects
+    const existing = await prisma.subject.findFirst({
       where: {
-        code_teacherId: {
-          code: formattedCode,
-          teacherId: session.user.id,
-        },
+        code: formattedCode,
+        teacherId: session.user.id,
       },
     });
 
@@ -103,12 +111,21 @@ export async function updateSubject(id: string, input: SubjectInput) {
       return { success: false, error: "You must be logged in to update a subject." };
     }
 
-    const validated = subjectSchema.parse(input);
+    const parsedId = idValidationSchema.safeParse(id);
+    if (!parsedId.success) {
+      return { success: false, error: parsedId.error.issues[0]?.message || "Invalid subject ID." };
+    }
+
+    const parsed = subjectSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0]?.message || "Invalid subject details." };
+    }
+    const validated = parsed.data;
     const formattedCode = validated.code.toUpperCase().trim();
 
     // Verify ownership
     const existing = await prisma.subject.findFirst({
-      where: { id, teacherId: session.user.id },
+      where: { id: parsedId.data, teacherId: session.user.id },
     });
 
     if (!existing) {
@@ -117,12 +134,11 @@ export async function updateSubject(id: string, input: SubjectInput) {
 
     // Check code conflict if code changed
     if (existing.code !== formattedCode) {
-      const codeConflict = await prisma.subject.findUnique({
+      const codeConflict = await prisma.subject.findFirst({
         where: {
-          code_teacherId: {
-            code: formattedCode,
-            teacherId: session.user.id,
-          },
+          code: formattedCode,
+          teacherId: session.user.id,
+          NOT: { id: parsedId.data },
         },
       });
 
@@ -135,7 +151,7 @@ export async function updateSubject(id: string, input: SubjectInput) {
     }
 
     const updated = await prisma.subject.update({
-      where: { id },
+      where: { id: parsedId.data },
       data: {
         code: formattedCode,
         name: validated.name.trim(),
@@ -163,8 +179,13 @@ export async function archiveSubject(id: string) {
       return { success: false, error: "You must be logged in to archive a subject." };
     }
 
+    const parsedId = idValidationSchema.safeParse(id);
+    if (!parsedId.success) {
+      return { success: false, error: parsedId.error.issues[0]?.message || "Invalid subject ID." };
+    }
+
     const existing = await prisma.subject.findFirst({
-      where: { id, teacherId: session.user.id },
+      where: { id: parsedId.data, teacherId: session.user.id },
     });
 
     if (!existing) {
@@ -172,7 +193,7 @@ export async function archiveSubject(id: string) {
     }
 
     const updated = await prisma.subject.update({
-      where: { id },
+      where: { id: parsedId.data },
       data: { isArchived: true },
     });
 
@@ -193,8 +214,13 @@ export async function unarchiveSubject(id: string) {
       return { success: false, error: "You must be logged in to unarchive a subject." };
     }
 
+    const parsedId = idValidationSchema.safeParse(id);
+    if (!parsedId.success) {
+      return { success: false, error: parsedId.error.issues[0]?.message || "Invalid subject ID." };
+    }
+
     const existing = await prisma.subject.findFirst({
-      where: { id, teacherId: session.user.id },
+      where: { id: parsedId.data, teacherId: session.user.id },
     });
 
     if (!existing) {
@@ -202,7 +228,7 @@ export async function unarchiveSubject(id: string) {
     }
 
     const updated = await prisma.subject.update({
-      where: { id },
+      where: { id: parsedId.data },
       data: { isArchived: false },
     });
 
@@ -223,18 +249,42 @@ export async function deleteSubject(id: string) {
       return { success: false, error: "You must be logged in to delete a subject." };
     }
 
+    const parsedId = idValidationSchema.safeParse(id);
+    if (!parsedId.success) {
+      return { success: false, error: parsedId.error.issues[0]?.message || "Invalid subject ID." };
+    }
+    const subjectId = parsedId.data;
+
     // Verify ownership
     const existing = await prisma.subject.findFirst({
-      where: { id, teacherId: session.user.id },
+      where: { id: subjectId, teacherId: session.user.id },
     });
 
     if (!existing) {
       return { success: false, error: "Subject not found or unauthorized." };
     }
 
-    await prisma.subject.delete({
-      where: { id },
-    });
+    const now = new Date();
+
+    // Transaction to soft delete subject and all nested enrollments, sessions, records
+    await prisma.$transaction([
+      prisma.attendanceRecord.updateMany({
+        where: { session: { subjectId } },
+        data: { deletedAt: now },
+      }),
+      prisma.attendanceSession.updateMany({
+        where: { subjectId },
+        data: { deletedAt: now },
+      }),
+      prisma.enrollment.updateMany({
+        where: { subjectId },
+        data: { deletedAt: now },
+      }),
+      prisma.subject.update({
+        where: { id: subjectId },
+        data: { deletedAt: now },
+      }),
+    ]);
 
     revalidatePath("/subjects");
     revalidatePath("/home");
@@ -249,12 +299,19 @@ export async function deleteSubject(id: string) {
 export async function getSubjectAttendanceExportData(subjectId: string) {
   try {
     const session = await getSession();
+    if (!session || !session.user) {
+      return { success: false, error: "Unauthorized access.", data: null };
+    }
 
-    // Find subject matching ID (and teacherId if session exists)
+    const parsedId = idValidationSchema.safeParse(subjectId);
+    if (!parsedId.success) {
+      return { success: false, error: parsedId.error.issues[0]?.message || "Invalid subject ID.", data: null };
+    }
+
     const subject = await prisma.subject.findFirst({
       where: {
-        id: subjectId,
-        ...(session?.user?.id ? { teacherId: session.user.id } : {}),
+        id: parsedId.data,
+        teacherId: session.user.id,
       },
       include: {
         enrollments: {
@@ -278,7 +335,7 @@ export async function getSubjectAttendanceExportData(subjectId: string) {
     });
 
     if (!subject) {
-      return { success: false, error: "Subject not found.", data: null };
+      return { success: false, error: "Subject not found or unauthorized.", data: null };
     }
 
     return { success: true, data: subject };
