@@ -201,93 +201,95 @@ export default function StudentAttendanceHistoryPage({
   return (
     <div className="space-y-6 pb-16">
       {/* Top Header & Navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3">
           <Link
             href="/students"
-            className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
+            className="p-1.5 sm:p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs shrink-0"
             title="Back to Students"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
           </Link>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-base sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                 {studentData ? formatStudentName(studentData) : "Student Attendance History"}
               </h1>
               {studentData && (
-                <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                <span className="px-2 py-0.5 rounded-md text-[11px] sm:text-xs font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
                   {studentData.studentNumber}
                 </span>
               )}
             </div>
             {studentData && (
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-4">
+              <div className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-0.5">
                 {studentData.email && (
-                  <span className="inline-flex items-center gap-1">
-                    <Mail className="w-3.5 h-3.5 text-slate-400" /> {studentData.email}
+                  <span className="inline-flex items-center gap-1 truncate">
+                    <Mail className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 shrink-0" /> {studentData.email}
                   </span>
                 )}
                 {studentData.contactInfo && (
-                  <span className="inline-flex items-center gap-1">
-                    <Phone className="w-3.5 h-3.5 text-slate-400" /> {studentData.contactInfo}
+                  <span className="inline-flex items-center gap-1 truncate">
+                    <Phone className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 shrink-0" /> {studentData.contactInfo}
                   </span>
                 )}
-              </p>
+              </div>
             )}
           </div>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-16 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-12 sm:p-16 text-center text-slate-500 dark:text-slate-400 text-xs flex flex-col items-center justify-center gap-2 shadow-xs">
           <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400" />
           <p>Fetching student attendance records...</p>
         </div>
       ) : !studentData ? (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-16 text-center text-slate-500 dark:text-slate-400 text-xs shadow-xs">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-12 sm:p-16 text-center text-slate-500 dark:text-slate-400 text-xs shadow-xs">
           <AlertCircle className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
           <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">Failed to load history</p>
           <p className="mt-1">Student not found or no attendance records available.</p>
         </div>
       ) : (
         <>
-          {/* Summary Stats Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-4 rounded-2xl shadow-2xs">
-              <span className="text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Total Logged</span>
-              <p className="mt-1 text-xl font-extrabold text-slate-900 dark:text-white">{stats.total}</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-4 rounded-2xl shadow-2xs">
-              <span className="text-[10px] font-semibold uppercase text-emerald-600 dark:text-emerald-400">Present</span>
-              <p className="mt-1 text-xl font-extrabold text-emerald-700 dark:text-emerald-400">{stats.present}</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-4 rounded-2xl shadow-2xs">
-              <span className="text-[10px] font-semibold uppercase text-red-600 dark:text-red-400">Absent</span>
-              <p className="mt-1 text-xl font-extrabold text-red-700 dark:text-red-400">{stats.absent}</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-4 rounded-2xl shadow-2xs">
-              <span className="text-[10px] font-semibold uppercase text-amber-600 dark:text-amber-400">Late</span>
-              <p className="mt-1 text-xl font-extrabold text-amber-700 dark:text-amber-400">{stats.late}</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-4 rounded-2xl shadow-2xs">
-              <span className="text-[10px] font-semibold uppercase text-blue-600 dark:text-blue-400">Excused</span>
-              <p className="mt-1 text-xl font-extrabold text-blue-700 dark:text-blue-400">{stats.excused}</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-4 rounded-2xl shadow-2xs">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Attendance Rate</span>
-                {stats.isAtRisk && <span className="text-[10px] font-bold text-red-600 dark:text-red-400">At Risk</span>}
+          {/* Summary Stats - Compressed Single Container */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-2xs">
+            <div className="grid grid-cols-3 sm:grid-cols-6 divide-x divide-slate-100 dark:divide-slate-800">
+              <div className="px-2 sm:px-3 text-center sm:text-left">
+                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block truncate">Total</span>
+                <p className="mt-0.5 text-base sm:text-xl font-extrabold text-slate-900 dark:text-white">{stats.total}</p>
               </div>
-              <p className={`mt-1 text-xl font-extrabold ${stats.isAtRisk ? "text-red-600 dark:text-red-400" : "text-slate-900 dark:text-white"}`}>
-                {stats.rate}%
-              </p>
+              <div className="px-2 sm:px-3 text-center sm:text-left">
+                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block truncate">Present</span>
+                <p className="mt-0.5 text-base sm:text-xl font-extrabold text-emerald-700 dark:text-emerald-400">{stats.present}</p>
+              </div>
+              <div className="px-2 sm:px-3 text-center sm:text-left">
+                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400 block truncate">Absent</span>
+                <p className="mt-0.5 text-base sm:text-xl font-extrabold text-red-700 dark:text-red-400">{stats.absent}</p>
+              </div>
+              <div className="px-2 sm:px-3 text-center sm:text-left pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
+                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block truncate">Late</span>
+                <p className="mt-0.5 text-base sm:text-xl font-extrabold text-amber-700 dark:text-amber-400">{stats.late}</p>
+              </div>
+              <div className="px-2 sm:px-3 text-center sm:text-left pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
+                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 block truncate">Excused</span>
+                <p className="mt-0.5 text-base sm:text-xl font-extrabold text-blue-700 dark:text-blue-400">{stats.excused}</p>
+              </div>
+              <div className="px-2 sm:px-3 text-center sm:text-left pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-center sm:justify-between gap-1">
+                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block truncate">Rate</span>
+                  {stats.isAtRisk && <span className="text-[8px] sm:text-[10px] font-extrabold text-red-600 dark:text-red-400">Risk</span>}
+                </div>
+                <p className={`mt-0.5 text-base sm:text-xl font-extrabold ${stats.isAtRisk ? "text-red-600 dark:text-red-400" : "text-slate-900 dark:text-white"}`}>
+                  {stats.rate}%
+                </p>
+              </div>
             </div>
           </div>
 
           {/* Controls & Filter Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-            <div className="flex items-center gap-2.5 flex-wrap text-xs">
+          <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+            <div className="flex flex-row items-center gap-2 text-xs">
               {/* Subject Dropdown */}
               <select
                 value={selectedSubjectId}
@@ -295,7 +297,7 @@ export default function StudentAttendanceHistoryPage({
                   setSelectedSubjectId(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer"
+                className="flex-1 min-w-0 px-2.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600 truncate cursor-pointer"
               >
                 <option value="ALL">All Subjects ({studentData.enrollments.length})</option>
                 {studentData.enrollments.map((e) => (
@@ -312,29 +314,31 @@ export default function StudentAttendanceHistoryPage({
                   setSelectedStatus(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer"
+                className="shrink-0 px-2.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer"
               >
-                <option value="ALL">All Statuses</option>
+                <option value="ALL">All Status</option>
                 <option value="PRESENT">PRESENT</option>
                 <option value="ABSENT">ABSENT</option>
                 <option value="LATE">LATE</option>
                 <option value="EXCUSED">EXCUSED</option>
               </select>
-            </div>
 
-            <button
-              type="button"
-              onClick={handleExportCsv}
-              disabled={filteredRecords.length === 0}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200 cursor-pointer"
-              title="Export filtered attendance as CSV"
-            >
-              <Download className="h-4 w-4" />
-              Export CSV
-            </button>
+              {/* Export CSV Button */}
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                disabled={filteredRecords.length === 0}
+                className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200 cursor-pointer shadow-2xs"
+                title="Export filtered attendance as CSV"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Export CSV</span>
+                <span className="sm:hidden">CSV</span>
+              </button>
+            </div>
           </div>
 
-          {/* History Table */}
+          {/* History Table / Mobile Cards */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
             {visibleRecords.length === 0 ? (
               <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-xs">
@@ -343,34 +347,85 @@ export default function StudentAttendanceHistoryPage({
                 <p className="mt-0.5">Try adjusting your subject or status filters.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[700px]">
-                  <thead>
-                    <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                      <th className="py-3.5 px-4">Subject</th>
-                      <th className="py-3.5 px-4">Session Title & Date</th>
-                      <th className="py-3.5 px-4 text-center">Status</th>
-                      <th className="py-3.5 px-4 text-right">Recorded Date</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                    {visibleRecords.map((rec) => (
-                      <tr key={rec.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <span className="px-2 py-0.5 rounded-md text-xs font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+              <div>
+                {/* Desktop Table View (md:block) */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                        <th className="py-3.5 px-4">Subject</th>
+                        <th className="py-3.5 px-4">Session Title & Date</th>
+                        <th className="py-3.5 px-4 text-center">Status</th>
+                        <th className="py-3.5 px-4 text-right">Recorded Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                      {visibleRecords.map((rec) => (
+                        <tr key={rec.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <span className="px-2 py-0.5 rounded-md text-xs font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                              {rec.session.subject.code}
+                            </span>
+                            <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 mt-1">
+                              {rec.session.subject.name}
+                            </p>
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <h2 className="font-bold text-slate-900 dark:text-white">
+                              {rec.session.title || "Roll Call Session"}
+                            </h2>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                              <Calendar className="w-3 h-3 text-slate-400" />
+                              {new Date(rec.session.sessionDate).toLocaleDateString(undefined, {
+                                weekday: "short",
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </p>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-center">
+                            {renderStatusBadge(rec.status)}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                            {new Date(rec.updatedAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Cards View (md:hidden) */}
+                <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+                  {visibleRecords.map((rec) => (
+                    <div key={rec.id} className="p-4 space-y-2.5 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
                             {rec.session.subject.code}
                           </span>
-                          <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 mt-1">
+                          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 truncate">
                             {rec.session.subject.name}
-                          </p>
-                        </td>
+                          </span>
+                        </div>
+                        <div className="shrink-0">
+                          {renderStatusBadge(rec.status)}
+                        </div>
+                      </div>
 
-                        <td className="py-3.5 px-4">
-                          <h2 className="font-bold text-slate-900 dark:text-white">
-                            {rec.session.title || "Roll Call Session"}
-                          </h2>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
-                            <Calendar className="w-3 h-3 text-slate-400" />
+                      <div>
+                        <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-snug">
+                          {rec.session.title || "Roll Call Session"}
+                        </h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>
                             {new Date(rec.session.sessionDate).toLocaleDateString(undefined, {
                               weekday: "short",
                               year: "numeric",
@@ -379,20 +434,20 @@ export default function StudentAttendanceHistoryPage({
                               hour: "2-digit",
                               minute: "2-digit",
                             })}
-                          </p>
-                        </td>
+                          </span>
+                        </p>
+                      </div>
 
-                        <td className="py-3.5 px-4 text-center">
-                          {renderStatusBadge(rec.status)}
-                        </td>
-
-                        <td className="py-3.5 px-4 text-right text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                      <div className="pt-2 flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800/60">
+                        <span>Recorded Date</span>
+                        <span className="font-mono font-medium text-slate-600 dark:text-slate-300">
                           {new Date(rec.updatedAt).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
                 <Pagination
                   page={currentPage}
                   pageSize={pageSize}
