@@ -30,6 +30,7 @@ model User {
   accounts         Account[]
   twoFactors       TwoFactor[]
   subjects         Subject[]
+  studentAuditLogs StudentAuditLog[]
 }
 
 model Session {
@@ -93,6 +94,7 @@ model Student {
   updatedAt     DateTime           @updatedAt
   enrollments   Enrollment[]
   attendances   AttendanceRecord[]
+  auditLogs     StudentAuditLog[]
 }
 
 model Subject {
@@ -144,4 +146,18 @@ model AttendanceRecord {
   updatedAt DateTime          @updatedAt
 
   @@unique([sessionId, studentId]) // Prevents duplicate student records in same session
+}
+
+model StudentAuditLog {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  updatedById String
+  updatedBy   User     @relation(fields: [updatedById], references: [id], onDelete: Cascade)
+  action      String   @default("UPDATE")
+  changes     Json?
+  createdAt   DateTime @default(now())
+
+  @@index([studentId])
+  @@index([updatedById])
 }

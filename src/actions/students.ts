@@ -152,6 +152,15 @@ export async function updateStudent(id: string, input: StudentInput) {
     if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message || "Invalid student details." };
     const validated = parsed.data;
 
+    // Fetch existing student snapshot to compute diffs
+    const currentStudent = await prisma.student.findUnique({
+      where: { id },
+    });
+
+    if (!currentStudent) {
+      return { success: false, error: "The student no longer exists." };
+    }
+
     // Check if another student uses this student number
     const existing = await prisma.student.findFirst({
       where: {
@@ -167,6 +176,27 @@ export async function updateStudent(id: string, input: StudentInput) {
       };
     }
 
+    // Calculate modified fields
+    const changes: Record<string, { from: string | null; to: string | null }> = {};
+    if (currentStudent.studentNumber !== validated.studentNumber) {
+      changes.studentNumber = { from: currentStudent.studentNumber, to: validated.studentNumber };
+    }
+    if (currentStudent.lastName !== validated.lastName) {
+      changes.lastName = { from: currentStudent.lastName, to: validated.lastName };
+    }
+    if (currentStudent.firstName !== validated.firstName) {
+      changes.firstName = { from: currentStudent.firstName, to: validated.firstName };
+    }
+    if ((currentStudent.middleInitial || null) !== (validated.middleInitial || null)) {
+      changes.middleInitial = { from: currentStudent.middleInitial, to: validated.middleInitial || null };
+    }
+    if ((currentStudent.email || null) !== (validated.email || null)) {
+      changes.email = { from: currentStudent.email, to: validated.email || null };
+    }
+    if ((currentStudent.contactInfo || null) !== (validated.contactInfo || null)) {
+      changes.contactInfo = { from: currentStudent.contactInfo, to: validated.contactInfo || null };
+    }
+
     const student = await prisma.student.update({
       where: { id },
       data: {
@@ -178,6 +208,25 @@ export async function updateStudent(id: string, input: StudentInput) {
         contactInfo: validated.contactInfo || null,
       },
     });
+
+    // Record audit log entry if fields were modified
+    if (Object.keys(changes).length > 0) {
+      try {
+        const session = await getSession();
+        if (session && session.user) {
+          await prisma.studentAuditLog.create({
+            data: {
+              studentId: id,
+              updatedById: session.user.id,
+              action: "UPDATE",
+              changes,
+            },
+          });
+        }
+      } catch (auditError) {
+        console.error("Failed to create student audit log:", auditError);
+      }
+    }
 
     revalidatePath("/students");
     return { success: true, data: student };
@@ -257,3 +306,34 @@ export async function getStudentAttendanceHistory(studentId: string) {
     return { success: false, error: "Failed to load student attendance history.", data: null };
   }
 }
+
+export async function getStudentEditHistory(studentId: string) {
+  try {
+    const session = await getSession();
+    if (!session || !session.user) {
+      return { success: false, error: "Unauthorized access.", data: [] };
+    }
+
+    const logs = await prisma.studentAuditLog.findMany({
+      where: { studentId },
+      include: {
+        updatedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return { success: true, data: logs };
+  } catch (error: unknown) {
+    console.error("Error fetching student edit history:", error);
+    return { success: false, error: "Failed to load edit history.", data: [] };
+  }
+}
+
