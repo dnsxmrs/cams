@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { authClient } from "@/lib/auth-client";
+import { checkUserExists } from "@/actions/auth";
 import { signUpSchema } from "@/lib/validations";
 import { AlertCircle, X, Eye, EyeOff, Lock, Mail, User, CheckCircle2, Circle, ArrowRight } from "lucide-react";
 
@@ -44,7 +45,7 @@ export default function SignUpPage() {
     setErrors({});
     setServerError(null);
 
-    // Validate inputs with Zod
+    // 1. Validate inputs with Zod
     const validationResult = signUpSchema.safeParse({
       name,
       email,
@@ -72,8 +73,21 @@ export default function SignUpPage() {
     setIsLoading(true);
 
     try {
+      const cleanEmail = email.trim().toLowerCase();
+
+      // 2. Check if user already exists in database
+      const userCheck = await checkUserExists(cleanEmail);
+      if (userCheck.exists) {
+        const errorMsg = `An account with email '${cleanEmail}' already exists. Please sign in instead.`;
+        setServerError(errorMsg);
+        // toast.error(errorMsg);
+        setIsLoading(false);
+        return;
+      }
+
+      // 3. User does not exist: proceed with signup
       const { error } = await authClient.signUp.email({
-        email,
+        email: cleanEmail,
         password,
         name,
         callbackURL: "/subjects",
@@ -83,7 +97,7 @@ export default function SignUpPage() {
         const errorMsg =
           error.message || error.statusText || "Failed to create account. Email may already be registered.";
         setServerError(errorMsg);
-        toast.error(errorMsg);
+        // toast.error(errorMsg);
       } else {
         // Automatically request verification OTP
         authClient.emailOtp.sendVerificationOtp({
@@ -98,7 +112,7 @@ export default function SignUpPage() {
       const errorMsg =
         err instanceof Error ? err.message : "Unable to connect to the authentication service.";
       setServerError(errorMsg);
-      toast.error(errorMsg);
+      // toast.error(errorMsg);
     } finally {
       setIsLoading(false);
     }

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
 import { authClient } from "@/lib/auth-client";
-import { KeyRound, ArrowRight, RefreshCw, CheckCircle2, AlertCircle, ShieldCheck } from "lucide-react";
+import { checkUserStatus } from "@/actions/auth";
+import { KeyRound, ArrowRight, RefreshCw, CheckCircle2, AlertCircle, UserX } from "lucide-react";
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
@@ -18,7 +19,38 @@ function VerifyEmailContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const [userNotFound, setUserNotFound] = useState(false);
+  const [checkingAccount, setCheckingAccount] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Validate user existence on load
+  useEffect(() => {
+    let ignore = false;
+    async function validateAccount() {
+      if (!email || !email.trim()) {
+        setUserNotFound(true);
+        setErrorMsg("No email address provided for verification.");
+        setCheckingAccount(false);
+        return;
+      }
+
+      const userStatus = await checkUserStatus(email);
+      if (ignore) return;
+
+      if (!userStatus.exists) {
+        setUserNotFound(true);
+        setErrorMsg(userStatus.error || `No registered account found with email '${email}'. Please create an account.`);
+      } else if (userStatus.emailVerified) {
+        setIsVerified(true);
+      }
+      setCheckingAccount(false);
+    }
+
+    validateAccount();
+    return () => {
+      ignore = true;
+    };
+  }, [email]);
 
   // Handle OTP Submission
   const handleOtpVerify = async (e?: React.FormEvent) => {
@@ -27,6 +59,17 @@ function VerifyEmailContent() {
       toast.error("Please enter your email address.");
       return;
     }
+
+    // Server check to ensure user still exists
+    const userStatus = await checkUserStatus(email);
+    if (!userStatus.exists) {
+      const msg = userStatus.error || "No registered account found. Please sign up first.";
+      setErrorMsg(msg);
+      // toast.error(msg);
+      setUserNotFound(true);
+      return;
+    }
+
     if (!otp || otp.length < 6) {
       toast.error("Please enter a valid 6-digit OTP code.");
       return;
@@ -38,14 +81,14 @@ function VerifyEmailContent() {
     try {
       // Verify email via OTP
       const { error } = await authClient.emailOtp.verifyEmail({
-        email,
+        email: email.trim().toLowerCase(),
         otp: otp.trim(),
       });
 
       if (error) {
         const msg = error.message || "Invalid or expired OTP code.";
         setErrorMsg(msg);
-        toast.error(msg);
+        // toast.error(msg);
       } else {
         setIsVerified(true);
         toast.success("Email verified successfully!");
@@ -57,7 +100,7 @@ function VerifyEmailContent() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to verify OTP code.";
       setErrorMsg(msg);
-      toast.error(msg);
+      // toast.error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -67,35 +110,9 @@ function VerifyEmailContent() {
   const handleOtpChange = (val: string) => {
     const cleaned = val.replace(/\D/g, "");
     setOtp(cleaned);
-    if (cleaned.length === 6) {
-      // Small timeout for user UX before auto submitting
+    if (cleaned.length === 6 && !isLoading && !userNotFound) {
       setTimeout(() => {
-        if (!isLoading) {
-          authClient.emailOtp
-            .verifyEmail({
-              email,
-              otp: cleaned,
-            })
-            .then(({ error }) => {
-              if (error) {
-                const msg = error.message || "Invalid or expired OTP code.";
-                setErrorMsg(msg);
-                toast.error(msg);
-              } else {
-                setIsVerified(true);
-                toast.success("Email verified successfully!");
-                setTimeout(() => {
-                  router.push("/subjects");
-                  router.refresh();
-                }, 1200);
-              }
-            })
-            .catch((err: unknown) => {
-              const msg = err instanceof Error ? err.message : "Failed to verify OTP code.";
-              setErrorMsg(msg);
-              toast.error(msg);
-            });
-        }
+        handleOtpVerify();
       }, 100);
     }
   };
@@ -111,8 +128,19 @@ function VerifyEmailContent() {
     setErrorMsg(null);
 
     try {
+      // 1. Validate if user exists before sending OTP
+      const userStatus = await checkUserStatus(email);
+      if (!userStatus.exists) {
+        const msg = userStatus.error || "No account found for this email address. Please sign up.";
+        setErrorMsg(msg);
+        // toast.error(msg);
+        setUserNotFound(true);
+        return;
+      }
+
+      // 2. Send OTP
       const { error } = await authClient.emailOtp.sendVerificationOtp({
-        email,
+        email: email.trim().toLowerCase(),
         type: "email-verification",
       });
 
@@ -127,6 +155,43 @@ function VerifyEmailContent() {
       setIsResending(false);
     }
   };
+
+  if (checkingAccount) {
+    return (
+      <div className="w-full max-w-md bg-white border border-slate-200/90 p-8 rounded-3xl shadow-xl text-center space-y-3 relative z-10">
+        <RefreshCw className="w-6 h-6 animate-spin text-blue-600 mx-auto" />
+        <p className="text-xs font-semibold text-slate-600">Verifying account registration...</p>
+      </div>
+    );
+  }
+
+  if (userNotFound) {
+    return (
+      <div className="w-full max-w-md bg-white border border-slate-200/90 p-8 rounded-3xl shadow-xl text-center space-y-4 relative z-10">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-50 border border-red-100 text-red-600 mb-2">
+          <UserX className="w-9 h-9 text-red-600" />
+        </div>
+        <h1 className="text-2xl font-bold text-slate-900">Account Not Found</h1>
+        <p className="text-xs text-slate-600 leading-relaxed">
+          {errorMsg || `No registered teacher account was found for '${email}'. Please create an account to get started.`}
+        </p>
+        <div className="pt-2 flex flex-col gap-2">
+          <Link
+            href="/signup"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-500/20 transition-colors"
+          >
+            Create an Account <ArrowRight className="w-4 h-4" />
+          </Link>
+          <Link
+            href="/login"
+            className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors pt-1"
+          >
+            Back to Sign In
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (isVerified) {
     return (

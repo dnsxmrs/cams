@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { authClient } from "@/lib/auth-client";
+import { checkUserStatus } from "@/actions/auth";
 import { loginSchema } from "@/lib/validations";
 import { AlertCircle, X, Eye, EyeOff, Lock, Mail, ArrowRight } from "lucide-react";
 
@@ -23,7 +24,7 @@ export default function LoginPage() {
     setErrors({});
     setServerError(null);
 
-    // Validate inputs with Zod
+    // 1. Validate inputs with Zod
     const validationResult = loginSchema.safeParse({ email, password });
     if (!validationResult.success) {
       const fieldErrors: { email?: string; password?: string } = {};
@@ -38,22 +39,38 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      const cleanEmail = email.trim().toLowerCase();
+
+      // 2. Validate database user existence first
+      const userStatus = await checkUserStatus(cleanEmail);
+      if (!userStatus.exists) {
+        const errorMsg = userStatus.error || `No account registered under '${cleanEmail}'. Please check your spelling or sign up.`;
+        setServerError(errorMsg);
+        // toast.error(errorMsg);
+        setIsLoading(false);
+        return;
+      }
+
+      // 3. User exists: attempt login
       const { error } = await authClient.signIn.email({
-        email,
+        email: cleanEmail,
         password,
         callbackURL: "/subjects",
       });
 
       if (error) {
-        const errorMsg =
-          error.message || error.statusText || "Failed to log in. Please check your credentials.";
-        setServerError(errorMsg);
-        toast.error(errorMsg);
-
-        if (errorMsg.toLowerCase().includes("verify") || errorMsg.toLowerCase().includes("email")) {
+        // Only redirect to verify-email if user's email is explicitly unverified
+        if (!userStatus.emailVerified) {
+          const errorMsg = "Your email address is not verified yet. Redirecting to verification page...";
+          setServerError(errorMsg);
+          // toast.error(errorMsg);
           setTimeout(() => {
-            router.push(`/verify-email?email=${encodeURIComponent(email)}`);
-          }, 1500);
+            router.push(`/verify-email?email=${encodeURIComponent(cleanEmail)}`);
+          }, 1200);
+        } else {
+          const errorMsg = "Incorrect password. Please try again or click 'Forgot Password'.";
+          setServerError(errorMsg);
+          // toast.error(errorMsg);
         }
       } else {
         toast.success("Logged in successfully!");
@@ -64,7 +81,7 @@ export default function LoginPage() {
       const errorMsg =
         err instanceof Error ? err.message : "Unable to connect to the authentication service.";
       setServerError(errorMsg);
-      toast.error(errorMsg);
+      // toast.error(errorMsg);
     } finally {
       setIsLoading(false);
     }
