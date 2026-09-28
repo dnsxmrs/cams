@@ -27,6 +27,7 @@ export async function getSubjectForSession(subjectId: string) {
       where: {
         id: parsedId.data,
         teacherId: authSession.user.id,
+        deletedAt: null,
       },
       select: {
         id: true,
@@ -37,6 +38,12 @@ export async function getSubjectForSession(subjectId: string) {
         color: true,
         isArchived: true,
         enrollments: {
+          where: {
+            deletedAt: null,
+            student: {
+              deletedAt: null,
+            },
+          },
           select: {
             id: true,
             subjectId: true,
@@ -94,8 +101,10 @@ export async function getTodaySessionForSubject(subjectId: string) {
     const sessionRecord = await prisma.attendanceSession.findFirst({
       where: {
         subjectId: parsedId.data,
+        deletedAt: null,
         subject: {
           teacherId: authSession.user.id,
+          deletedAt: null,
         },
         sessionDate: {
           gte: startOfToday,
@@ -108,6 +117,10 @@ export async function getTodaySessionForSubject(subjectId: string) {
         sessionDate: true,
         title: true,
         records: {
+          where: {
+            deletedAt: null,
+            student: { deletedAt: null },
+          },
           select: {
             id: true,
             sessionId: true,
@@ -137,7 +150,8 @@ export async function getTeacherAttendanceSessions(searchQuery?: string) {
 
     const sessions = await prisma.attendanceSession.findMany({
       where: {
-        subject: { teacherId },
+        deletedAt: null,
+        subject: { teacherId, deletedAt: null },
         ...(query
           ? {
               OR: [
@@ -162,6 +176,10 @@ export async function getTeacherAttendanceSessions(searchQuery?: string) {
           },
         },
         records: {
+          where: {
+            deletedAt: null,
+            student: { deletedAt: null },
+          },
           select: {
             id: true,
             status: true,
@@ -205,8 +223,10 @@ export async function getSessionById(sessionId: string) {
     const sessionRecord = await prisma.attendanceSession.findFirst({
       where: {
         id: parsedId.data,
+        deletedAt: null,
         subject: {
           teacherId: authSession.user.id,
+          deletedAt: null,
         },
       },
       select: {
@@ -225,6 +245,10 @@ export async function getSessionById(sessionId: string) {
           },
         },
         records: {
+          where: {
+            deletedAt: null,
+            student: { deletedAt: null },
+          },
           select: {
             id: true,
             sessionId: true,
@@ -284,11 +308,12 @@ export async function createAttendanceSessionAndRecords(
       return { success: false, error: msg };
     }
 
-    // Verify teacher owns the subject selecting only id
+    // Verify teacher owns the subject
     const subject = await prisma.subject.findFirst({
       where: {
         id: subjectId,
         teacherId: authSession.user.id,
+        deletedAt: null,
       },
       select: { id: true },
     });
@@ -297,7 +322,7 @@ export async function createAttendanceSessionAndRecords(
       return { success: false, error: "Subject not found or unauthorized." };
     }
 
-    // Check if attendance session was already created today for this subject selecting only id
+    // Check if attendance session was already created today for this subject
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
@@ -307,6 +332,7 @@ export async function createAttendanceSessionAndRecords(
     const existingTodaySession = await prisma.attendanceSession.findFirst({
       where: {
         subjectId,
+        deletedAt: null,
         sessionDate: {
           gte: startOfToday,
           lte: endOfToday,
@@ -368,17 +394,28 @@ export async function getAttendanceReports() {
 
     // Fetch subjects for this teacher selecting only needed fields for reports
     const subjects = await prisma.subject.findMany({
-      where: { teacherId },
+      where: { teacherId, deletedAt: null },
       select: {
         id: true,
         code: true,
         name: true,
         enrollments: {
+          where: {
+            deletedAt: null,
+            student: { deletedAt: null },
+          },
           select: { id: true },
         },
         sessions: {
+          where: {
+            deletedAt: null,
+          },
           select: {
             records: {
+              where: {
+                deletedAt: null,
+                student: { deletedAt: null },
+              },
               select: { status: true },
             },
           },
@@ -389,10 +426,13 @@ export async function getAttendanceReports() {
     // Fetch students enrolled in this teacher's subjects selecting only needed fields
     const students = await prisma.student.findMany({
       where: {
+        deletedAt: null,
         enrollments: {
           some: {
+            deletedAt: null,
             subject: {
               teacherId,
+              deletedAt: null,
             },
           },
         },
@@ -406,9 +446,12 @@ export async function getAttendanceReports() {
         email: true,
         attendances: {
           where: {
+            deletedAt: null,
             session: {
+              deletedAt: null,
               subject: {
                 teacherId,
+                deletedAt: null,
               },
             },
           },

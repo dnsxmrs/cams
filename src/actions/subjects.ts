@@ -23,6 +23,7 @@ export async function getTeacherSubjects(searchQuery?: string, isArchived: boole
       where: {
         isArchived: Boolean(isArchived),
         teacherId,
+        deletedAt: null,
         ...(query
           ? {
               OR: [
@@ -46,8 +47,17 @@ export async function getTeacherSubjects(searchQuery?: string, isArchived: boole
         updatedAt: true,
         _count: {
           select: {
-            enrollments: true,
-            sessions: true,
+            enrollments: {
+              where: {
+                deletedAt: null,
+                student: { deletedAt: null },
+              },
+            },
+            sessions: {
+              where: {
+                deletedAt: null,
+              },
+            },
           },
         },
       },
@@ -77,11 +87,12 @@ export async function createSubject(input: SubjectInput) {
     const validated = parsed.data;
     const formattedCode = validated.code.toUpperCase().trim();
 
-    // Check unique constraint for [code, teacherId] among active subjects selecting only id
+    // Check unique constraint for [code, teacherId] among active subjects
     const existing = await prisma.subject.findFirst({
       where: {
         code: formattedCode,
         teacherId: session.user.id,
+        deletedAt: null,
       },
       select: { id: true },
     });
@@ -134,9 +145,9 @@ export async function updateSubject(id: string, input: SubjectInput) {
     const validated = parsed.data;
     const formattedCode = validated.code.toUpperCase().trim();
 
-    // Verify ownership selecting only needed fields
+    // Verify ownership
     const existing = await prisma.subject.findFirst({
-      where: { id: parsedId.data, teacherId: session.user.id },
+      where: { id: parsedId.data, teacherId: session.user.id, deletedAt: null },
       select: { id: true, code: true },
     });
 
@@ -144,12 +155,13 @@ export async function updateSubject(id: string, input: SubjectInput) {
       return { success: false, error: "Subject not found or unauthorized." };
     }
 
-    // Check code conflict if code changed selecting only id
+    // Check code conflict if code changed
     if (existing.code !== formattedCode) {
       const codeConflict = await prisma.subject.findFirst({
         where: {
           code: formattedCode,
           teacherId: session.user.id,
+          deletedAt: null,
           NOT: { id: parsedId.data },
         },
         select: { id: true },
@@ -198,7 +210,7 @@ export async function archiveSubject(id: string) {
     }
 
     const existing = await prisma.subject.findFirst({
-      where: { id: parsedId.data, teacherId: session.user.id },
+      where: { id: parsedId.data, teacherId: session.user.id, deletedAt: null },
       select: { id: true },
     });
 
@@ -234,7 +246,7 @@ export async function unarchiveSubject(id: string) {
     }
 
     const existing = await prisma.subject.findFirst({
-      where: { id: parsedId.data, teacherId: session.user.id },
+      where: { id: parsedId.data, teacherId: session.user.id, deletedAt: null },
       select: { id: true },
     });
 
@@ -270,9 +282,9 @@ export async function deleteSubject(id: string) {
     }
     const subjectId = parsedId.data;
 
-    // Verify ownership selecting only id
+    // Verify ownership
     const existing = await prisma.subject.findFirst({
-      where: { id: subjectId, teacherId: session.user.id },
+      where: { id: subjectId, teacherId: session.user.id, deletedAt: null },
       select: { id: true },
     });
 
@@ -282,18 +294,18 @@ export async function deleteSubject(id: string) {
 
     const now = new Date();
 
-    // Transaction to soft delete subject and all nested enrollments, sessions, records
+    // Cascading soft delete in a transaction for Subject, Enrollments, Sessions, AttendanceRecords
     await prisma.$transaction([
       prisma.attendanceRecord.updateMany({
-        where: { session: { subjectId } },
+        where: { session: { subjectId }, deletedAt: null },
         data: { deletedAt: now },
       }),
       prisma.attendanceSession.updateMany({
-        where: { subjectId },
+        where: { subjectId, deletedAt: null },
         data: { deletedAt: now },
       }),
       prisma.enrollment.updateMany({
-        where: { subjectId },
+        where: { subjectId, deletedAt: null },
         data: { deletedAt: now },
       }),
       prisma.subject.update({
@@ -328,12 +340,17 @@ export async function getSubjectAttendanceExportData(subjectId: string) {
       where: {
         id: parsedId.data,
         teacherId: session.user.id,
+        deletedAt: null,
       },
       select: {
         id: true,
         code: true,
         name: true,
         enrollments: {
+          where: {
+            deletedAt: null,
+            student: { deletedAt: null },
+          },
           select: {
             student: {
               select: {
@@ -352,11 +369,18 @@ export async function getSubjectAttendanceExportData(subjectId: string) {
           ],
         },
         sessions: {
+          where: {
+            deletedAt: null,
+          },
           select: {
             id: true,
             title: true,
             sessionDate: true,
             records: {
+              where: {
+                deletedAt: null,
+                student: { deletedAt: null },
+              },
               select: {
                 studentId: true,
                 status: true,

@@ -37,17 +37,20 @@ export async function getStudents(searchQuery?: string) {
     const query = typeof searchQuery === "string" ? searchQuery.trim() : undefined;
 
     const students = await prisma.student.findMany({
-      where: query
-        ? {
-            OR: [
-              { studentNumber: { contains: query, mode: "insensitive" } },
-              { lastName: { contains: query, mode: "insensitive" } },
-              { firstName: { contains: query, mode: "insensitive" } },
-              { middleInitial: { contains: query, mode: "insensitive" } },
-              { email: { contains: query, mode: "insensitive" } },
-            ],
-          }
-        : undefined,
+      where: {
+        deletedAt: null,
+        ...(query
+          ? {
+              OR: [
+                { studentNumber: { contains: query, mode: "insensitive" } },
+                { lastName: { contains: query, mode: "insensitive" } },
+                { firstName: { contains: query, mode: "insensitive" } },
+                { middleInitial: { contains: query, mode: "insensitive" } },
+                { email: { contains: query, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
       select: {
         id: true,
         studentNumber: true,
@@ -59,7 +62,14 @@ export async function getStudents(searchQuery?: string) {
         createdAt: true,
         updatedAt: true,
         _count: {
-          select: { enrollments: true },
+          select: {
+            enrollments: {
+              where: {
+                deletedAt: null,
+                subject: { deletedAt: null },
+              },
+            },
+          },
         },
       },
       orderBy: [
@@ -87,9 +97,12 @@ export async function createStudent(input: StudentInput) {
     if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message || "Invalid student details." };
     const validated = parsed.data;
 
-    // Check for unique student number selecting only id
+    // Check for unique student number among active students
     const existing = await prisma.student.findFirst({
-      where: { studentNumber: validated.studentNumber },
+      where: {
+        studentNumber: validated.studentNumber,
+        deletedAt: null,
+      },
       select: { id: true },
     });
 
@@ -189,9 +202,9 @@ export async function updateStudent(id: string, input: StudentInput) {
     if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message || "Invalid student details." };
     const validated = parsed.data;
 
-    // Fetch existing student snapshot selecting only needed fields for diffs
+    // Fetch existing active student snapshot
     const currentStudent = await prisma.student.findFirst({
-      where: { id: studentId },
+      where: { id: studentId, deletedAt: null },
       select: {
         id: true,
         studentNumber: true,
@@ -207,11 +220,12 @@ export async function updateStudent(id: string, input: StudentInput) {
       return { success: false, error: "The student no longer exists." };
     }
 
-    // Check if another active student uses this student number selecting only id
+    // Check if another active student uses this student number
     const existing = await prisma.student.findFirst({
       where: {
         studentNumber: validated.studentNumber,
         NOT: { id: studentId },
+        deletedAt: null,
       },
       select: { id: true },
     });
@@ -292,7 +306,7 @@ export async function deleteStudent(id: string) {
     const studentId = parsedId.data;
 
     const existing = await prisma.student.findFirst({
-      where: { id: studentId },
+      where: { id: studentId, deletedAt: null },
       select: { id: true },
     });
 
@@ -305,11 +319,11 @@ export async function deleteStudent(id: string) {
     // Cascading soft delete in a transaction for Student, Enrollments, AttendanceRecords
     await prisma.$transaction([
       prisma.attendanceRecord.updateMany({
-        where: { studentId },
+        where: { studentId, deletedAt: null },
         data: { deletedAt: now },
       }),
       prisma.enrollment.updateMany({
-        where: { studentId },
+        where: { studentId, deletedAt: null },
         data: { deletedAt: now },
       }),
       prisma.student.update({
@@ -340,7 +354,7 @@ export async function getStudentAttendanceHistory(studentId: string) {
     const teacherId = authSession.user.id;
 
     const student = await prisma.student.findFirst({
-      where: { id: validStudentId },
+      where: { id: validStudentId, deletedAt: null },
       select: {
         id: true,
         studentNumber: true,
@@ -351,9 +365,12 @@ export async function getStudentAttendanceHistory(studentId: string) {
         contactInfo: true,
         attendances: {
           where: {
+            deletedAt: null,
             session: {
+              deletedAt: null,
               subject: {
                 teacherId,
+                deletedAt: null,
               },
             },
           },
@@ -384,8 +401,10 @@ export async function getStudentAttendanceHistory(studentId: string) {
         },
         enrollments: {
           where: {
+            deletedAt: null,
             subject: {
               teacherId,
+              deletedAt: null,
             },
           },
           select: {
@@ -451,4 +470,3 @@ export async function getStudentEditHistory(studentId: string) {
     return { success: false, error: "Failed to load edit history.", data: [] };
   }
 }
-

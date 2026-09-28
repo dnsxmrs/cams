@@ -143,7 +143,7 @@ export default function SubjectEnrollmentsPage({
 
     const res = await enrollStudent(subjectId, st.id);
     if (res.success) {
-      toast.success(`${formatStudentName(st)} enrolled in ${subject?.code}!`);
+      toast.success(`${formatStudentName(st)} enrolled in ${subject?.code || "subject"}!`);
       // Update UI state
       setAvailableStudents((prev) => prev.filter((s) => s.id !== st.id));
       fetchRoster();

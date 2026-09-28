@@ -36,8 +36,6 @@ function weightedStatus(): "PRESENT" | "ABSENT" | "LATE" | "EXCUSED" {
   return "EXCUSED";
 }
 
-// Returns Date objects for every Mon-Fri weekday in the last `weeks` weeks,
-// counting back from today (today excluded if it's in the "current" partial week edge case is fine to include).
 function pastWeekdays(weeks: number): Date[] {
   const days: Date[] = [];
   const today = new Date();
@@ -57,7 +55,7 @@ function pastWeekdays(weeks: number): Date[] {
 }
 
 // =========================================================
-// Name pools (random, meaningless — just need variety + uniqueness)
+// Name pools & Templates
 // =========================================================
 
 const FIRST_NAMES = [
@@ -97,7 +95,7 @@ const SCHEDULE_SLOTS = [
 ];
 
 // =========================================================
-// Main
+// Main Seeder
 // =========================================================
 
 async function main() {
@@ -124,15 +122,18 @@ async function main() {
 
   await prisma.user.update({
     where: { id: teacher.id },
-    data: { emailVerified: true },
+    data: {
+      name: teacherName,
+      emailVerified: true,
+      twoFactorEnabled: false,
+    },
   });
   console.log(`✅ Teacher account ready: ${teacher.email} (Password: ${teacherPassword})`);
 
-const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
+  const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
 
   // ---------------------------------------------------------
-  // 2. Global student directory (25 students, so subjects
-  //    needing 14-20 have room to draw from a shared pool)
+  // 2. Global student directory (25 active students)
   // ---------------------------------------------------------
   const STUDENT_COUNT = 25;
   console.log(`Creating ${STUDENT_COUNT} students in global directory...`);
@@ -168,9 +169,26 @@ const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
     const student = existing
       ? await prisma.student.update({
           where: { id: existing.id },
-          data: { lastName: s.lastName, firstName: s.firstName, middleInitial: s.middleInitial, email: s.email, contactInfo: s.contactInfo },
+          data: {
+            lastName: s.lastName,
+            firstName: s.firstName,
+            middleInitial: s.middleInitial || null,
+            email: s.email,
+            contactInfo: s.contactInfo,
+            deletedAt: null, // ensure active
+          },
         })
-      : await prisma.student.create({ data: s });
+      : await prisma.student.create({
+          data: {
+            studentNumber: s.studentNumber,
+            lastName: s.lastName,
+            firstName: s.firstName,
+            middleInitial: s.middleInitial || null,
+            email: s.email,
+            contactInfo: s.contactInfo,
+            deletedAt: null,
+          },
+        });
     createdStudents.push(student);
   }
   console.log(`✅ Seeded ${createdStudents.length} students.`);
@@ -199,6 +217,7 @@ const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
             color: COLORS[i % COLORS.length],
             schedules: JSON.stringify(SCHEDULE_SLOTS[i % SCHEDULE_SLOTS.length]),
             isArchived: false,
+            deletedAt: null,
           },
         })
       : await prisma.subject.create({
@@ -210,6 +229,7 @@ const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
             schedules: JSON.stringify(SCHEDULE_SLOTS[i % SCHEDULE_SLOTS.length]),
             isArchived: false,
             teacherId: teacher.id,
+            deletedAt: null,
           },
         });
     createdSubjects[tpl.code] = subject;
@@ -229,6 +249,7 @@ const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
             color: COLORS[(i + 6) % COLORS.length],
             schedules: JSON.stringify(SCHEDULE_SLOTS[(i + 6) % SCHEDULE_SLOTS.length]),
             isArchived: true,
+            deletedAt: null,
           },
         })
       : await prisma.subject.create({
@@ -240,6 +261,7 @@ const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
             schedules: JSON.stringify(SCHEDULE_SLOTS[(i + 6) % SCHEDULE_SLOTS.length]),
             isArchived: true,
             teacherId: teacher.id,
+            deletedAt: null,
           },
         });
     createdSubjects[tpl.code] = subject;
@@ -248,9 +270,6 @@ const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
 
   // ---------------------------------------------------------
   // 4. Enrollments
-  //    - CS101, CS102, CS201 -> "large" (14-20 students)
-  //    - CS202, CS301, CS302 -> "small" (5-10 students)
-  //    - CS401, CS402 (archived) -> 8-12 students, for realism
   // ---------------------------------------------------------
   console.log("Enrolling students into subjects...");
 
@@ -277,9 +296,14 @@ const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
       const existing = await prisma.enrollment.findFirst({
         where: { subjectId: subject.id, studentId: student.id },
       });
-      if (!existing) {
+      if (existing) {
+        await prisma.enrollment.update({
+          where: { id: existing.id },
+          data: { deletedAt: null },
+        });
+      } else {
         await prisma.enrollment.create({
-          data: { subjectId: subject.id, studentId: student.id },
+          data: { subjectId: subject.id, studentId: student.id, deletedAt: null },
         });
       }
     }
@@ -289,9 +313,6 @@ const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
 
   // ---------------------------------------------------------
   // 5. Attendance sessions + records
-  //    - 2 active subjects (CS101, CS201) get sessions for
-  //      every weekday in the past 2 weeks
-  //    - 1 archived subject (CS401) gets the same
   // ---------------------------------------------------------
   console.log("Creating attendance sessions & records...");
 
@@ -306,19 +327,36 @@ const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
     const roster = enrollmentsBySubject[code];
 
     for (const day of weekdays) {
-      const session = await prisma.attendanceSession.create({
-        data: {
+      const existingSession = await prisma.attendanceSession.findFirst({
+        where: {
           subjectId: subject.id,
           sessionDate: day,
-          title: `${code} - Class Session (${day.toISOString().slice(0, 10)})`,
         },
       });
+
+      const session = existingSession
+        ? await prisma.attendanceSession.update({
+            where: { id: existingSession.id },
+            data: {
+              title: `${code} - Class Session (${day.toISOString().slice(0, 10)})`,
+              deletedAt: null,
+            },
+          })
+        : await prisma.attendanceSession.create({
+            data: {
+              subjectId: subject.id,
+              sessionDate: day,
+              title: `${code} - Class Session (${day.toISOString().slice(0, 10)})`,
+              deletedAt: null,
+            },
+          });
       totalSessions++;
 
       const records = roster.map((student) => ({
         sessionId: session.id,
         studentId: student.id,
         status: weightedStatus(),
+        deletedAt: null,
       }));
 
       await prisma.attendanceRecord.createMany({
@@ -331,6 +369,33 @@ const MIDDLE_INITIALS = ["A", "B", "C", "D", "E", "M", "R", "S", "T", "V"];
   }
 
   console.log(`✅ Seeded ${totalSessions} attendance sessions and ${totalRecords} attendance records.`);
+
+  // ---------------------------------------------------------
+  // 6. Sample Student Audit Logs
+  // ---------------------------------------------------------
+  console.log("Creating sample student audit logs...");
+  const sampleStudent = createdStudents[0];
+  if (sampleStudent) {
+    const existingLog = await prisma.studentAuditLog.findFirst({
+      where: { studentId: sampleStudent.id, updatedById: teacher.id },
+    });
+    if (!existingLog) {
+      await prisma.studentAuditLog.create({
+        data: {
+          studentId: sampleStudent.id,
+          updatedById: teacher.id,
+          action: "UPDATE",
+          changes: {
+            contactInfo: {
+              from: "+63 9000000000",
+              to: sampleStudent.contactInfo,
+            },
+          },
+        },
+      });
+      console.log("✅ Sample student audit log created.");
+    }
+  }
 
   console.log("\n🎉 Seeding finished successfully!");
   console.log("\n🔑 TEACHER CREDENTIALS:");

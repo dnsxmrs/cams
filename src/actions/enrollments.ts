@@ -24,6 +24,7 @@ export async function getSubjectEnrollments(subjectId: string) {
       where: {
         id: parsedId.data,
         teacherId: session.user.id,
+        deletedAt: null,
       },
       select: {
         id: true,
@@ -34,6 +35,12 @@ export async function getSubjectEnrollments(subjectId: string) {
         color: true,
         isArchived: true,
         enrollments: {
+          where: {
+            deletedAt: null,
+            student: {
+              deletedAt: null,
+            },
+          },
           select: {
             id: true,
             subjectId: true,
@@ -67,7 +74,8 @@ export async function getSubjectEnrollments(subjectId: string) {
     return { success: true, data: subject };
   } catch (error: unknown) {
     console.error("Error fetching subject enrollments:", error);
-    // return { success: false, error: "Failed to load subject enrollments.", data: null };
+    const msg = error instanceof Error ? error.message : "Failed to load subject enrollments.";
+    return { success: false, error: msg, data: null };
   }
 }
 
@@ -83,9 +91,9 @@ export async function getAvailableStudentsForSubject(subjectId: string, searchQu
       return { success: false, error: parsedId.error.issues[0]?.message || "Invalid subject ID.", data: [] };
     }
 
-    // Verify teacher owns the subject selecting only id
+    // Verify teacher owns the subject
     const subject = await prisma.subject.findFirst({
-      where: { id: parsedId.data, teacherId: session.user.id },
+      where: { id: parsedId.data, teacherId: session.user.id, deletedAt: null },
       select: { id: true },
     });
 
@@ -95,12 +103,14 @@ export async function getAvailableStudentsForSubject(subjectId: string, searchQu
 
     const query = typeof searchQuery === "string" ? searchQuery.trim() : undefined;
 
-    // Fetch students NOT currently enrolled in this subject selecting only needed fields
+    // Fetch active students NOT currently enrolled (or whose enrollment is not active) in this subject
     const students = await prisma.student.findMany({
       where: {
+        deletedAt: null,
         enrollments: {
           none: {
             subjectId: parsedId.data,
+            deletedAt: null,
           },
         },
         ...(query
@@ -133,7 +143,8 @@ export async function getAvailableStudentsForSubject(subjectId: string, searchQu
     return { success: true, data: students };
   } catch (error: unknown) {
     console.error("Error fetching available students:", error);
-    return { success: false, error: "Failed to load available students.", data: [] };
+    const msg = error instanceof Error ? error.message : "Failed to load available students.";
+    return { success: false, error: msg, data: [] };
   }
 }
 
@@ -150,9 +161,9 @@ export async function enrollStudent(subjectId: string, studentId: string) {
     const parsedStudentId = idValidationSchema.safeParse(studentId);
     if (!parsedStudentId.success) return { success: false, error: "Invalid student ID." };
 
-    // Ownership check: Verify teacher owns the subject selecting only id
+    // Ownership check: Verify teacher owns the subject
     const subject = await prisma.subject.findFirst({
-      where: { id: parsedSubjectId.data, teacherId: session.user.id },
+      where: { id: parsedSubjectId.data, teacherId: session.user.id, deletedAt: null },
       select: { id: true },
     });
 
@@ -160,11 +171,22 @@ export async function enrollStudent(subjectId: string, studentId: string) {
       return { success: false, error: "Subject not found or unauthorized." };
     }
 
-    // Check duplicate enrollment constraint selecting only id
+    // Check if student is active
+    const student = await prisma.student.findFirst({
+      where: { id: parsedStudentId.data, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!student) {
+      return { success: false, error: "Student not found." };
+    }
+
+    // Check duplicate active enrollment
     const existing = await prisma.enrollment.findFirst({
       where: {
         subjectId: parsedSubjectId.data,
         studentId: parsedStudentId.data,
+        deletedAt: null,
       },
       select: { id: true },
     });
@@ -173,29 +195,67 @@ export async function enrollStudent(subjectId: string, studentId: string) {
       return { success: false, error: "Student is already enrolled in this subject." };
     }
 
-    const enrollment = await prisma.enrollment.create({
-      data: {
+    // If an inactive enrollment exists, re-activate it
+    const softDeleted = await prisma.enrollment.findFirst({
+      where: {
         subjectId: parsedSubjectId.data,
         studentId: parsedStudentId.data,
+        NOT: { deletedAt: null },
       },
-      select: {
-        id: true,
-        subjectId: true,
-        studentId: true,
-        enrolledAt: true,
-        student: {
-          select: {
-            id: true,
-            studentNumber: true,
-            lastName: true,
-            firstName: true,
-            middleInitial: true,
-            email: true,
-            contactInfo: true,
+      select: { id: true },
+    });
+
+    let enrollment;
+    if (softDeleted) {
+      enrollment = await prisma.enrollment.update({
+        where: { id: softDeleted.id },
+        data: {
+          deletedAt: null,
+          enrolledAt: new Date(),
+        },
+        select: {
+          id: true,
+          subjectId: true,
+          studentId: true,
+          enrolledAt: true,
+          student: {
+            select: {
+              id: true,
+              studentNumber: true,
+              lastName: true,
+              firstName: true,
+              middleInitial: true,
+              email: true,
+              contactInfo: true,
+            },
           },
         },
-      },
-    });
+      });
+    } else {
+      enrollment = await prisma.enrollment.create({
+        data: {
+          subjectId: parsedSubjectId.data,
+          studentId: parsedStudentId.data,
+        },
+        select: {
+          id: true,
+          subjectId: true,
+          studentId: true,
+          enrolledAt: true,
+          student: {
+            select: {
+              id: true,
+              studentNumber: true,
+              lastName: true,
+              firstName: true,
+              middleInitial: true,
+              email: true,
+              contactInfo: true,
+            },
+          },
+        },
+      });
+    }
 
     revalidatePath(`/subjects/${parsedSubjectId.data}/enrollments`);
     revalidatePath(`/subjects`);
@@ -223,9 +283,9 @@ export async function unenrollStudent(subjectId: string, studentId: string) {
     const parsedStudentId = idValidationSchema.safeParse(studentId);
     if (!parsedStudentId.success) return { success: false, error: "Invalid student ID." };
 
-    // Ownership check: Verify teacher owns the subject selecting only id
+    // Ownership check: Verify teacher owns the subject
     const subject = await prisma.subject.findFirst({
-      where: { id: parsedSubjectId.data, teacherId: session.user.id },
+      where: { id: parsedSubjectId.data, teacherId: session.user.id, deletedAt: null },
       select: { id: true },
     });
 
